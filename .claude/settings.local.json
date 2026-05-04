@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -e ' *)",
+      "Bash(npx esbuild *)",
+      "Bash(echo \"exit=$?\")"
+    ]
+  }
+}
