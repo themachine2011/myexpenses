@@ -55,6 +55,42 @@ export const AreaSpark = ({ data, dataKey, accent, tokens, height = 220 }) => {
   );
 };
 
+// Compact BRL formatter used inside the X-axis ticks ("R$2,5k", "-R$520")
+const fmtCompactBRL = (v) => {
+  if (v == null || isNaN(v)) return 'R$0';
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  if (abs >= 1000) return `${sign}R$${(abs / 1000).toFixed(1).replace('.', ',')}k`;
+  return `${sign}R$${abs.toFixed(0)}`;
+};
+
+// Color rule for the per-month cashflow label: red < 0, yellow < 500, green >= 500.
+const cashflowColor = (cf, tokens) => {
+  if (cf < 0)   return tokens?.negative || '#EF4444';
+  if (cf < 500) return '#F5B544';
+  return tokens?.positive || '#10B981';
+};
+
+// Custom XAxis tick that renders the month label on the first row and the month's cashflow
+// on the second row, colored by sign/threshold. Used by RotatingCharts.
+const CashflowTick = ({ x, y, payload, data, tokens }) => {
+  const item = (data || []).find((d) => d.label === payload.value);
+  const cashflow = item ? item.cashflow : 0;
+  const color = cashflowColor(cashflow, tokens);
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={14} textAnchor="middle"
+        fill={tokens.textDim} fontSize={11} fontFamily="var(--font-mono)">
+        {payload.value}
+      </text>
+      <text x={0} y={0} dy={30} textAnchor="middle"
+        fill={color} fontSize={11} fontFamily="var(--font-mono)" fontWeight={600}>
+        {fmtCompactBRL(cashflow)}
+      </text>
+    </g>
+  );
+};
+
 export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) => {
   const { themeTokens, fmt } = useAppContext();
   const [chartIdx, setChartIdx] = useState(0);
@@ -84,8 +120,8 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 18 }}>
           <defs>
             <linearGradient id={`rc-${chartIdx}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={cur.color} stopOpacity={0.4} />
@@ -94,7 +130,9 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
           </defs>
           <CartesianGrid stroke={themeTokens.grid} strokeDasharray="2 4" vertical={false} />
           <XAxis dataKey="label" tickLine={false} axisLine={false}
-                 tick={{ fill: themeTokens.textDim, fontSize: 11, fontFamily:'var(--font-mono)' }} />
+                 height={42}
+                 interval={0}
+                 tick={<CashflowTick data={data} tokens={themeTokens} />} />
           <YAxis tickLine={false} axisLine={false} width={56}
                  tickFormatter={(v) => `${(v/1000).toFixed(0)}k`}
                  tick={{ fill: themeTokens.textDim, fontSize: 10, fontFamily:'var(--font-mono)' }} />
@@ -176,11 +214,20 @@ export const ExpensePie = ({ transactions }) => {
   );
 };
 
-export const ComposedFlow = ({ data }) => {
+export const ComposedFlow = ({ data, onMonthSelect, selectedMonthKey }) => {
   const { themeTokens, fmt } = useAppContext();
+  const barClick = (entry) => {
+    const payload = entry?.payload || entry;
+    if (payload) onMonthSelect?.(payload);
+  };
+  const chartClick = (entry) => {
+    const payload = entry?.activePayload?.[0]?.payload;
+    if (payload) onMonthSelect?.(payload);
+  };
+  const barCursor = onMonthSelect ? 'pointer' : 'default';
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }} onClick={chartClick}>
         <CartesianGrid stroke={themeTokens.grid} strokeDasharray="2 4" vertical={false} />
         <XAxis dataKey="label" tickLine={false} axisLine={false}
                tick={{ fill: themeTokens.textDim, fontSize: 11, fontFamily:'var(--font-mono)' }} />
@@ -188,8 +235,18 @@ export const ComposedFlow = ({ data }) => {
                tickFormatter={(v) => `${(v/1000).toFixed(0)}k`}
                tick={{ fill: themeTokens.textDim, fontSize: 10, fontFamily:'var(--font-mono)' }} />
         <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
-        <Bar dataKey="fixed"    stackId="x" name="Fixed"    fill={themeTokens.accentDeep} radius={[0,0,0,0]} isAnimationActive animationDuration={900} />
-        <Bar dataKey="variable" stackId="x" name="Variable" fill={themeTokens.accent}     radius={[6,6,0,0]} isAnimationActive animationDuration={900} />
+        <Bar dataKey="fixed" stackId="x" name="Fixed" fill={themeTokens.accentDeep} radius={[0,0,0,0]}
+             isAnimationActive animationDuration={900} onClick={barClick} style={{ cursor: barCursor }}>
+          {data.map((entry) => (
+            <Cell key={`fixed-${entry.monthKey}`} fill={entry.monthKey === selectedMonthKey ? themeTokens.accentSoft : themeTokens.accentDeep} />
+          ))}
+        </Bar>
+        <Bar dataKey="variable" stackId="x" name="Variable" fill={themeTokens.accent} radius={[6,6,0,0]}
+             isAnimationActive animationDuration={900} onClick={barClick} style={{ cursor: barCursor }}>
+          {data.map((entry) => (
+            <Cell key={`variable-${entry.monthKey}`} fill={entry.monthKey === selectedMonthKey ? themeTokens.accentSoft : themeTokens.accent} />
+          ))}
+        </Bar>
         <Line type="monotone" dataKey="income" name="Income" stroke={themeTokens.positive} strokeWidth={2.2}
               dot={{ fill: themeTokens.positive, r: 3 }} isAnimationActive animationDuration={1100} />
       </ComposedChart>
@@ -295,6 +352,10 @@ export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward =
     const cashflow = income - fixed - variable;
     out.push({
       label: base.toLocaleString('en-US', { month: 'short' }),
+      monthLabel: base.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+      monthKey: `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`,
+      year: base.getFullYear(),
+      month: base.getMonth(),
       income, fixed, variable, expense: fixed + variable, cashflow,
     });
   }

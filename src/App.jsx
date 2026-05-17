@@ -1,16 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AppContext, useAppState } from './context.jsx';
+import { AppContext, useAppState, currentMonthRange } from './context.jsx';
 import { ACCENT_PRESETS, FONT_PAIRS } from './tokens.jsx';
 import { AurumLoader, AurumToken3D } from './loader.jsx';
 import {
-  Dashboard, GraphPage, GoalsPage, CardsPage, NetWorthPage,
-  CostsPage, MotorcyclePage, TransactionsPage, LedgerPage, TimelinePage, DebtsPage,
+  Dashboard, GraphPage, CardsPage, NetWorthPage,
+  MotorcyclePage, TransactionsPage, LedgerPage, TimelinePage, DebtsPage,
+  AllTransactionsPage, SubscriptionsPage, CardPurchasesPage,
   ParticleField, GlobalCalendar, HistorySidebar, GlobalSearch,
 } from './pages.jsx';
 import {
-  useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect, TweakButton,
+  useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect, TweakButton, TweakSlider,
 } from './tweaks-panel.jsx';
+import { StorageErrorToast } from './2026-05-16-utils-storage-write-guard.jsx';
+import {
+  useAutoBackup, buildBackupPayload, downloadBackup, setBackupSettings, getBackupSettings,
+} from './2026-05-16-backup-scheduled-json-export.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -20,15 +25,15 @@ const TWEAK_DEFAULTS = {
   currency: 'BRL',
   language: 'en',
   showLoader: true,
+  defaultSplitMode: 'off',
+  backupIntervalDays: getBackupSettings().intervalDays,
 };
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'graph', label: 'Graphs' },
-  { id: 'goals', label: 'Savings' },
   { id: 'cards', label: 'Cards' },
   { id: 'networth', label: 'Net Worth' },
-  { id: 'costs', label: 'Costs' },
   { id: 'motorcycle', label: 'Triumph' },
   { id: 'ledger', label: 'Ledger' },
   { id: 'transactions', label: 'Transactions' },
@@ -50,9 +55,34 @@ const App = () => {
   useEffect(() => { state.setDensity(tweaks.density); }, [tweaks.density]);
   useEffect(() => { state.setCurrency(tweaks.currency); }, [tweaks.currency]);
   useEffect(() => { state.setLang(tweaks.language); }, [tweaks.language]);
+  useEffect(() => { state.setDefaultSplitMode?.(tweaks.defaultSplitMode === 'on'); }, [tweaks.defaultSplitMode]);
 
-  const [loaderShown, setLoaderShown] = useState(tweaks.showLoader);
-  const [loaderDone, setLoaderDone] = useState(!tweaks.showLoader);
+  // One-shot bootstrap: when this tab is opened with `?card=...&view=cardPurchases`
+  // (e.g. by clicking "Recent on this card"), set the focused card and view.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const wantView = params.get('view');
+      const wantCard = params.get('card');
+      if (wantCard) state.setFocusedCardMethod?.(wantCard);
+      if (wantView) state.setView(wantView);
+    } catch (_) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { setBackupSettings({ intervalDays: tweaks.backupIntervalDays }); }, [tweaks.backupIntervalDays]);
+  useAutoBackup(state);
+
+  // Skip the splash loader when the tab is opened via a deep-link (e.g. the
+  // "Recent on this card" button opens `?view=cardPurchases&card=...`).
+  // Otherwise honor the user's `showLoader` tweak.
+  const deepLinked = (() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return !!(p.get('view') || p.get('card'));
+    } catch (_) { return false; }
+  })();
+  const [loaderShown, setLoaderShown] = useState(deepLinked ? false : tweaks.showLoader);
+  const [loaderDone, setLoaderDone]   = useState(deepLinked ? true  : !tweaks.showLoader);
 
   const tk = state.themeTokens;
   const fonts = state.fonts;
@@ -95,21 +125,25 @@ const App = () => {
     `;
   }, [tk, fonts]);
 
-  const balance = useMemo(() => state.computeBankBalance(), [state.transactions]);
+  const balance = useMemo(() => {
+    const { from, to } = currentMonthRange();
+    return state.computeAvailableCash({ from, to });
+  }, [state.transactions]);
 
   const renderView = () => {
     switch (state.view) {
       case 'dashboard':   return <Dashboard />;
       case 'graph':       return <GraphPage />;
-      case 'goals':       return <GoalsPage />;
       case 'cards':       return <CardsPage />;
       case 'networth':    return <NetWorthPage />;
-      case 'costs':       return <CostsPage />;
       case 'motorcycle':  return <MotorcyclePage />;
       case 'ledger':      return <LedgerPage />;
       case 'transactions':return <TransactionsPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
+      case 'allTransactions': return <AllTransactionsPage />;
+      case 'subscriptions':   return <SubscriptionsPage />;
+      case 'cardPurchases':   return <CardPurchasesPage />;
       default:            return <Dashboard />;
     }
   };
@@ -194,7 +228,7 @@ const App = () => {
           maxWidth: 1640, margin: '0 auto', padding: '32px 28px',
           position: 'relative', zIndex: 1,
           display: 'grid',
-          gridTemplateColumns: (state.view === 'ledger' || state.view === 'transactions')
+          gridTemplateColumns: state.view === 'ledger'
             ? '300px minmax(0, 1fr) 360px'
             : '300px minmax(0, 1fr)',
           gap: 24,
@@ -216,25 +250,84 @@ const App = () => {
             </AnimatePresence>
           </div>
 
-          {(state.view === 'ledger' || state.view === 'transactions') && (
+          {state.view === 'ledger' && (
             <aside style={{ position: 'sticky', top: 96 }}>
               <HistorySidebar />
             </aside>
           )}
         </main>
 
+        {/* Fixed bottom-left theme toggle — visible on every tab. Cycles between
+            the dark Onyx mode and the warm Cream mode. */}
+        <button
+          onClick={() => setTweak('theme', tweaks.theme === 'cream' ? 'onyx' : 'cream')}
+          aria-label={tweaks.theme === 'cream' ? 'Switch to dark mode' : 'Switch to cream light mode'}
+          title={tweaks.theme === 'cream' ? 'Switch to Onyx (dark)' : 'Switch to Cream (light)'}
+          style={{
+            position: 'fixed', left: 24, bottom: 24, zIndex: 100,
+            width: 56, height: 56, borderRadius: '50%',
+            border: `1px solid ${tk.hairline2}`,
+            background: tk.surface,
+            backdropFilter: 'blur(20px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+            boxShadow: tk.isDark
+              ? '0 12px 28px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04)'
+              : '0 12px 28px rgba(40,30,20,0.18), 0 0 0 1px rgba(40,30,20,0.06)',
+            color: tk.text,
+            display: 'grid', placeItems: 'center',
+            cursor: 'pointer',
+            transition: 'transform 200ms ease, background 480ms ease, color 480ms ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+        >
+          {tweaks.theme === 'cream' ? (
+            // Moon icon (currently in light → click to go dark)
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          ) : (
+            // Sun icon (currently in dark → click to go cream)
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="4.5" />
+              <line x1="12" y1="2" x2="12" y2="4.5" />
+              <line x1="12" y1="19.5" x2="12" y2="22" />
+              <line x1="4.22" y1="4.22" x2="6" y2="6" />
+              <line x1="18" y1="18" x2="19.78" y2="19.78" />
+              <line x1="2" y1="12" x2="4.5" y2="12" />
+              <line x1="19.5" y1="12" x2="22" y2="12" />
+              <line x1="4.22" y1="19.78" x2="6" y2="18" />
+              <line x1="18" y1="6" x2="19.78" y2="4.22" />
+            </svg>
+          )}
+        </button>
+
         <TweaksPanel title="Tweaks">
           <TweakSection label="Theme" />
-          <TweakRadio label="Mode" value={tweaks.theme} options={[{ value: 'onyx', label: 'Onyx' }, { value: 'ivory', label: 'Ivory' }]} onChange={(v) => setTweak('theme', v)} />
+          <TweakRadio label="Mode" value={tweaks.theme} options={[{ value: 'onyx', label: 'Onyx' }, { value: 'ivory', label: 'Ivory' }, { value: 'cream', label: 'Cream' }]} onChange={(v) => setTweak('theme', v)} />
           <TweakSelect label="Accent" value={tweaks.accent} options={Object.entries(ACCENT_PRESETS).map(([k, v]) => ({ value: k, label: v.name }))} onChange={(v) => setTweak('accent', v)} />
           <TweakSelect label="Font set" value={tweaks.fontPair} options={Object.entries(FONT_PAIRS).map(([k, v]) => ({ value: k, label: v.name }))} onChange={(v) => setTweak('fontPair', v)} />
           <TweakSection label="Display" />
           <TweakRadio label="Density" value={tweaks.density} options={['comfortable', 'compact']} onChange={(v) => setTweak('density', v)} />
           <TweakSelect label="Currency" value={tweaks.currency} options={[{ value: 'BRL', label: 'R$' }, { value: 'USD', label: 'US$' }, { value: 'compact', label: 'Compact' }]} onChange={(v) => setTweak('currency', v)} />
           <TweakRadio label="Language" value={tweaks.language} options={[{ value: 'en', label: 'EN' }, { value: 'pt', label: 'PT' }]} onChange={(v) => setTweak('language', v)} />
+          <TweakSection label="Transactions" />
+          <TweakRadio label="Default split mode" value={tweaks.defaultSplitMode} options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]} onChange={(v) => setTweak('defaultSplitMode', v)} />
+          <TweakSection label="Backups" />
+          <TweakSlider label="Auto-backup every" min={1} max={30} step={1} unit="d"
+            value={tweaks.backupIntervalDays}
+            onChange={(v) => setTweak('backupIntervalDays', v)} />
+          <TweakButton label="Backup now" onClick={() => {
+            downloadBackup(buildBackupPayload(state), { auto: false });
+            setBackupSettings({ lastAutoBackupAt: new Date().toISOString() });
+          }} />
           <TweakSection label="Loader" />
           <TweakButton label="Replay loader" onClick={() => { setLoaderDone(false); setLoaderShown(true); }} />
         </TweaksPanel>
+
+        <StorageErrorToast onExportNow={() => downloadBackup(buildBackupPayload(state), { auto: false })} />
       </div>
     </AppContext.Provider>
   );

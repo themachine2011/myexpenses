@@ -8,7 +8,14 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(node -e ' *)",
       "Bash(npx esbuild *)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(echo \"ctx=$?\")",
+      "Bash(echo \"app=$?\")",
+      "Bash(echo \"pages=$?\")",
+      "Bash(gh pr *)",
+      "PowerShell(gh pr list)",
+      "Bash(npx --yes esbuild --loader=jsx src/pages.jsx --bundle=false)",
+      "Bash(npx --yes esbuild src/pages.jsx --loader:.jsx=jsx)"
     ]
   }
 }

@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Financial Flow Wallpaper</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --fx-ink: #eff8ff;
+      --fx-muted: rgba(215, 235, 255, 0.62);
+      --fx-blue: #45b9ff;
+      --fx-cyan: #7bf0ff;
+      --fx-mint: #87ffc9;
+      --fx-amber: #ffbf66;
+      --fx-rose: #ff7e9d;
+      --fx-bg-0: #03050a;
+      --fx-bg-1: #071120;
+      --fx-bg-2: #101827;
+      --fx-font: "Aptos Display", "Sora", "Space Grotesk", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(52, 164, 255, 0.25), transparent 31rem),
+        radial-gradient(circle at 82% 28%, rgba(255, 177, 91, 0.17), transparent 26rem),
+        radial-gradient(circle at 46% 88%, rgba(86, 255, 185, 0.13), transparent 32rem),
+        linear-gradient(135deg, var(--fx-bg-0), var(--fx-bg-1) 48%, #050711);
+      color: var(--fx-ink);
+      font-family: var(--fx-font);
+    }
+
+    .fx-wallpaper {
+      position: fixed;
+      inset: 0;
+      isolation: isolate;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 30% 10%, rgba(61, 194, 255, 0.18), transparent 32%),
+        radial-gradient(ellipse at 86% 22%, rgba(255, 197, 111, 0.13), transparent 35%),
+        radial-gradient(ellipse at 45% 105%, rgba(96, 255, 189, 0.12), transparent 42%),
+        linear-gradient(120deg, #02040a 0%, #081221 44%, #0b0d17 100%);
+    }
+
+    .fx-wallpaper::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 14;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.14) 62%, rgba(0, 0, 0, 0.74) 100%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 20%, transparent 80%, rgba(255, 255, 255, 0.025));
+      mix-blend-mode: multiply;
+    }
+
+    .fx-wallpaper::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+      pointer-events: none;
+      opacity: 0.18;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.84' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    .fx-aurora,
+    .fx-grid,
+    .fx-market,
+    .fx-canvas,
+    .fx-depth,
+    .fx-rings,
+    .fx-streaks,
+    .fx-cards,
+    .fx-ticks {
+      position: absolute;
+      inset: 0;
+    }
+
+    .fx-aurora {
+      z-index: 0;
+      opacity: 0.9;
+      filter: blur(22px) saturate(1.2);
+    }
+
+    .fx-aurora span {
+      position: absolute;
+      width: 44vw;
+      height: 44vw;
+      min-width: 25rem;
+      min-height: 25rem;
+      border-radius: 999px;
+      opacity: 0.34;
+      mix-blend-mode: screen;
+      animation: fx-aurora-drift 32s ease-in-out infinite alternate;
+    }
+
+    .fx-aurora span:nth-child(1) {
+      left: -10vw;
+      top: -16vw;
+      background: radial-gradient(circle, rgba(0, 174, 255, 0.78), transparent 64%);
+    }
+
+    .fx-aurora span:nth-child(2) {
+      right: -13vw;
+      top: 4vw;
+      background: radial-gradient(circle, rgba(255, 169, 72, 0.64), transparent 66%);
+      animation-delay: -11s;
+      animation-duration: 38s;
+    }
+
+    .fx-aurora span:nth-child(3) {
+      left: 30vw;
+      bottom: -22vw;
+      background: radial-gradient(circle, rgba(95, 255, 184, 0.52), transparent 68%);
+      animation-delay: -19s;
+      animation-duration: 44s;
+    }
+
+    .fx-grid {
+      z-index: 1;
+      opacity: 0.42;
+      background-image:
+        linear-gradient(rgba(131, 196, 255, 0.11) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(131, 196, 255, 0.09) 1px, transparent 1px),
+        radial-gradient(circle, rgba(145, 223, 255, 0.13) 1px, transparent 1.5px);
+      background-size: 96px 96px, 96px 96px, 24px 24px;
+      mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 84%, transparent);
+      transform: perspective(900px) rotateX(58deg) translateY(15vh) scale(1.45);
+      transform-origin: 50% 100%;
+      animation: fx-grid-crawl 26s linear infinite;
+    }
+
+    .fx-market {
+      z-index: 2;
+      overflow: hidden;
+      filter: blur(1.6px);
+      opacity: 0.52;
+      transform: translateZ(0);
+      mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 70%, transparent 100%);
+    }
+
+    .fx-stock-line {
+      position: absolute;
+      left: -18vw;
+      width: 136vw;
+      height: 118px;
+      animation: fx-market-scroll var(--fx-speed, 24s) linear infinite;
+      animation-delay: var(--fx-delay, 0s);
+      opacity: var(--fx-opacity, 0.75);
+    }
+
+    .fx-stock-line svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .fx-stock-line path {
+      fill: none;
+      stroke: var(--fx-color, var(--fx-blue));
+      stroke-width: 1.45;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 10px color-mix(in srgb, var(--fx-color, var(--fx-blue)) 60%, transparent));
+    }
+
+    .fx-stock-line .fx-fill {
+      stroke: none;
+      fill: var(--fx-color, var(--fx-blue));
+      opacity: 0.06;
+      filter: none;
+    }
+
+    .fx-canvas {
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .fx-depth {
+      pointer-events: none;
+      z-index: 4;
+      perspective: 1200px;
+      transform-style: preserve-3d;
+    }
+
+    .fx-glass {
+      position: absolute;
+      width: clamp(210px, 22vw, 420px);
+      height: clamp(130px, 13vw, 240px);
+      border: 1px solid rgba(180, 225, 255, 0.22);
+      border-radius: 28px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 48%, rgba(255, 255, 255, 0.095)),
+        radial-gradient(circle at 18% 0%, rgba(124, 224, 255, 0.22), transparent 48%),
+        rgba(12, 22, 37, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -30px 80px rgba(255, 255, 255, 0.035),
+        0 34px 90px rgba(0, 0, 0, 0.33),
+        0 0 42px rgba(67, 184, 255, 0.06);
+      backdrop-filter: blur(16px) saturate(1.25);
+      -webkit-backdrop-filter: blur(16px) saturate(1.25);
+      transform: translate3d(var(--fx-x, 0), var(--fx-y, 0), 0) rotate(var(--fx-r, 0deg));
+      animation: fx-panel-float var(--fx-dur, 19s) ease-in-out infinite alternate;
+      animation-delay: var(--fx-delay, 0s);
+      overflow: hidden;
+    }
+
+    .fx-glass::before {
+      content: "";
+      position: absolute;
+      inset: -75%;
+      background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.24) 48%, transparent 58%);
+      transform: translateX(-36%) rotate(8deg);
+      animation: fx-sheen 11s ease-in-out infinite;
+      animation-delay: var(--fx-sheen-delay, 0s);
+    }
+
+    .fx-glass::after {
+      content: "";
+      position: absolute;
+      inset: 16px;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.075);
+      background:
+        linear-gradient(90deg, rgba(131, 220, 255, 0.10), transparent 55%),
+        repeating-linear-gradient(0deg, transparent 0 14px, rgba(255, 255, 255, 0.035) 15px 16px);
+      opacity: 0.58;
+    }
+
+    .fx-glass.g1 {
+      left: 4vw;
+      top: 12vh;
+      --fx-x: 1vw;
+      --fx-y: -1vh;
+      --fx-r: -10deg;
+      --fx-dur: 22s;
+      --fx-delay: -4s;
+      --fx-sheen-delay: -3s;
+      opacity: 0.52;
+      scale: 0.86;
+    }
+
+    .fx-glass.g2 {
+      right: 5vw;
+      top: 9vh;
+      --fx-x: -1vw;
+      --fx-y: 1vh;
+      --fx-r: 8deg;
+      --fx-dur: 25s;
+      --fx-delay: -11s;
+      --fx-sheen-delay: -8s;
+      opacity: 0.46;
+      scale: 0.78;
+    }
+
+    .fx-glass.g3 {
+      left: 17vw;
+      bottom: 9vh;
+      --fx-x: -1vw;
+      --fx-y: 1vh;
+      --fx-r: 7deg;
+      --fx-dur: 19s;
+      --fx-delay: -2s;
+      opacity: 0.58;
+    }
+
+    .fx-glass.g4 {
+      right: 16vw;
+      bottom: 14vh;
+      --fx-x: 1vw;
+      --fx-y: -1vh;
+      --fx-r: -7deg;
+      --fx-dur: 21s;
+      --fx-delay: -13s;
+      opacity: 0.5;
+      scale: 0.92;
+    }
+
+    .fx-glass.g5 {
+      left: 44vw;
+      top: 35vh;
+      --fx-x: 0.4vw;
+      --fx-y: -1.2vh;
+      --fx-r: 13deg;
+      --fx-dur: 28s;
+      --fx-delay: -16s;
+      opacity: 0.34;
+      scale: 1.08;
+    }
+
+    .fx-rings {
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    .fx-ring {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      left: var(--x);
+      top: var(--y);
+      border-radius: 999px;
+      background: var(--c);
+      box-shadow: 0 0 18px var(--c), 0 0 46px color-mix(in srgb, var(--c) 60%, transparent);
+      transform: translate(-50%, -50%);
+    }
+
+    .fx-ring::before,
+    .fx-ring::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border: 1px solid var(--c);
+      border-radius: inherit;
+      opacity: 0;
+      animation: fx-ring-fire 6.8s cubic-bezier(0.14, 0.74, 0.36, 1) infinite;
+      animation-delay: var(--d, 0s);
+    }
+
+    .fx-ring::after {
+      animation-delay: calc(var(--d, 0s) + 1.7s);
+    }
+
+    .fx-streaks {
+      z-index: 8;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .fx-streak {
+      position: absolute;
+      width: var(--w, 220px);
+      height: 2px;
+      left: -24vw;
+      top: var(--y, 40%);
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, var(--c, var(--fx-cyan)) 32%, rgba(255, 255, 255, 0.95));
+      box-shadow: 0 0 16px var(--c, var(--fx-cyan)), 0 0 34px color-mix(in srgb, var(--c, var(--fx-cyan)) 54%, transparent);
+      transform: rotate(var(--r, -18deg));
+      opacity: 0;
+      animation: fx-streak-sweep var(--dur, 9s) linear infinite;
+      animation-delay: var(--d, 0s);
+    }
+
+    .fx-cards {
+      z-index: 9;
+      pointer-events: none;
+    }
+
+    .fx-card {
+      position: absolute;
+      width: clamp(164px, 15vw, 240px);
+      min-height: 104px;
+      padding: 17px 18px 15px;
+      border: 1px solid rgba(169, 224, 255, 0.18);
+      border-radius: 22px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04)),
+        rgba(7, 14, 25, 0.42);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 22px 70px rgba(0, 0, 0, 0.38),
+        0 0 38px rgba(67, 190, 255, 0.06);
+      backdrop-filter: blur(18px) saturate(1.22);
+      -webkit-backdrop-filter: blur(18px) saturate(1.22);
+      animation: fx-card-breathe 9s ease-in-out infinite alternate;
+      animation-delay: var(--d, 0s);
+    }
+
+    .fx-card.portfolio {
+      left: 7vw;
+      top: 58vh;
+    }
+
+    .fx-card.flow {
+      right: 8vw;
+      top: 54vh;
+      --d: -3s;
+    }
+
+    .fx-card.equity {
+      left: 65vw;
+      top: 19vh;
+      --d: -6s;
+    }
+
+    .fx-card.balance {
+      left: 18vw;
+      top: 18vh;
+      --d: -8s;
+    }
+
+    .fx-card__label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--fx-muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .fx-card__label span:last-child {
+      color: var(--tone, var(--fx-cyan));
+      font-size: 0.68rem;
+      text-shadow: 0 0 14px var(--tone, var(--fx-cyan));
+    }
+
+    .fx-card__value {
+      margin-top: 9px;
+      font-size: clamp(1.25rem, 2vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      text-shadow: 0 0 26px rgba(132, 221, 255, 0.18);
+    }
+
+    .fx-card__spark {
+      width: 100%;
+      height: 32px;
+      margin-top: 8px;
+      overflow: visible;
+    }
+
+    .fx-card__spark path {
+      fill: none;
+      stroke: var(--tone, var(--fx-cyan));
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 120;
+      stroke-dashoffset: 120;
+      filter: drop-shadow(0 0 8px var(--tone, var(--fx-cyan)));
+      animation: fx-spark-draw 4.5s ease-in-out infinite;
+      animation-delay: var(--d, 0s);
+    }
+
+    .fx-ticks {
+      z-index: 10;
+      pointer-events: none;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fx-tick {
+      position: absolute;
+      min-width: 68px;
+      padding: 7px 9px;
+      border: 1px solid rgba(173, 226, 255, 0.15);
+      border-radius: 12px;
+      background: rgba(4, 11, 20, 0.38);
+      color: rgba(238, 250, 255, 0.76);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 0 22px color-mix(in srgb, var(--tick-tone, var(--fx-cyan)) 18%, transparent);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      opacity: 0;
+      transform: translate3d(-50%, -50%, 0) scale(0.92);
+      animation: fx-tick-pop var(--life, 3.8s) ease-in-out forwards;
+    }
+
+    .fx-tick strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--tick-tone, var(--fx-cyan));
+      font-size: 0.66rem;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px var(--tick-tone, var(--fx-cyan));
+    }
+
+    @keyframes fx-aurora-drift {
+      0% {
+        transform: translate3d(-2vw, 1vh, 0) scale(0.94);
+      }
+
+      100% {
+        transform: translate3d(5vw, -3vh, 0) scale(1.08);
+      }
+    }
+
+    @keyframes fx-grid-crawl {
+      0% {
+        background-position: 0 0, 0 0, 0 0;
+      }
+
+      100% {
+        background-position: 0 96px, 96px 0, 24px 24px;
+      }
+    }
+
+    @keyframes fx-market-scroll {
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        transform: translateX(18vw);
+      }
+    }
+
+    @keyframes fx-panel-float {
+      0% {
+        transform: translate3d(var(--fx-x, 0), var(--fx-y, 0), 0) rotate(var(--fx-r, 0deg));
+      }
+
+      100% {
+        transform: translate3d(calc(var(--fx-x, 0) * -1.4), calc(var(--fx-y, 0) * -1.7), 0) rotate(calc(var(--fx-r, 0deg) * -0.72));
+      }
+    }
+
+    @keyframes fx-sheen {
+      0%, 18% {
+        transform: translateX(-45%) rotate(8deg);
+      }
+
+      54%, 100% {
+        transform: translateX(45%) rotate(8deg);
+      }
+    }
+
+    @keyframes fx-ring-fire {
+      0% {
+        opacity: 0;
+        transform: scale(0.62);
+      }
+
+      12% {
+        opacity: 0.66;
+      }
+
+      68%, 100% {
+        opacity: 0;
+        transform: scale(18);
+      }
+    }
+
+    @keyframes fx-streak-sweep {
+      0% {
+        opacity: 0;
+        transform: translate3d(-12vw, 0, 0) rotate(var(--r, -18deg)) scaleX(0.5);
+      }
+
+      8% {
+        opacity: 0.84;
+      }
+
+      72% {
+        opacity: 0.74;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate3d(146vw, -28vh, 0) rotate(var(--r, -18deg)) scaleX(1.12);
+      }
+    }
+
+    @keyframes fx-card-breathe {
+      0% {
+        transform: translate3d(0, 0, 0) rotate(-0.4deg);
+      }
+
+      100% {
+        transform: translate3d(0, -12px, 0) rotate(0.5deg);
+      }
+    }
+
+    @keyframes fx-spark-draw {
+      0% {
+        stroke-dashoffset: 120;
+        opacity: 0.4;
+      }
+
+      38%, 72% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+      }
+
+      100% {
+        stroke-dashoffset: -120;
+        opacity: 0.45;
+      }
+    }
+
+    @keyframes fx-tick-pop {
+      0% {
+        opacity: 0;
+        transform: translate3d(-50%, -38%, 0) scale(0.92);
+      }
+
+      18%, 72% {
+        opacity: 0.82;
+        transform: translate3d(-50%, -50%, 0) scale(1);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate3d(-50%, -70%, 0) scale(0.96);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .fx-card.equity,
+      .fx-card.balance {
+        display: none;
+      }
+
+      .fx-card.portfolio {
+        left: 5vw;
+        top: auto;
+        bottom: 16vh;
+      }
+
+      .fx-card.flow {
+        right: 5vw;
+        top: 16vh;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="fx-wallpaper" aria-label="Animated financial flow wallpaper">
+    <div class="fx-aurora" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <div class="fx-grid" aria-hidden="true"></div>
+    <div class="fx-market" data-fx-market aria-hidden="true"></div>
+    <canvas class="fx-canvas" data-fx-canvas aria-hidden="true"></canvas>
+
+    <section class="fx-depth" aria-hidden="true">
+      <i class="fx-glass g1"></i>
+      <i class="fx-glass g2"></i>
+      <i class="fx-glass g3"></i>
+      <i class="fx-glass g4"></i>
+      <i class="fx-glass g5"></i>
+    </section>
+
+    <div class="fx-rings" aria-hidden="true">
+      <i class="fx-ring" style="--x:16%;--y:25%;--c:#45b9ff;--d:-0.8s"></i>
+      <i class="fx-ring" style="--x:36%;--y:64%;--c:#87ffc9;--d:-2.2s"></i>
+      <i class="fx-ring" style="--x:56%;--y:36%;--c:#ffbf66;--d:-4.4s"></i>
+      <i class="fx-ring" style="--x:74%;--y:22%;--c:#7bf0ff;--d:-1.4s"></i>
+      <i class="fx-ring" style="--x:82%;--y:72%;--c:#ffbf66;--d:-5.1s"></i>
+      <i class="fx-ring" style="--x:25%;--y:78%;--c:#7fffd2;--d:-3.1s"></i>
+    </div>
+
+    <div class="fx-streaks" data-fx-streaks aria-hidden="true"></div>
+
+    <section class="fx-cards" aria-hidden="true">
+      <article class="fx-card portfolio" style="--tone:#7bf0ff">
+        <div class="fx-card__label"><span>Portfolio</span><span>+12.8%</span></div>
+        <div class="fx-card__value">$284.7K</div>
+        <svg class="fx-card__spark" viewBox="0 0 160 34" preserveAspectRatio="none">
+          <path d="M2 28 C18 18 24 26 36 17 S55 9 66 18 86 30 101 14 129 7 158 11" />
+        </svg>
+      </article>
+
+      <article class="fx-card flow" style="--tone:#ffbf66">
+        <div class="fx-card__label"><span>Net Flow</span><span>+$8.2K</span></div>
+        <div class="fx-card__value">$41.9K</div>
+        <svg class="fx-card__spark" viewBox="0 0 160 34" preserveAspectRatio="none">
+          <path d="M2 21 C16 11 30 14 41 19 S63 31 78 16 105 6 122 12 142 24 158 8" />
+        </svg>
+      </article>
+
+      <article class="fx-card equity" style="--tone:#87ffc9">
+        <div class="fx-card__label"><span>Equity</span><span>+4.6%</span></div>
+        <div class="fx-card__value">$128.4K</div>
+        <svg class="fx-card__spark" viewBox="0 0 160 34" preserveAspectRatio="none">
+          <path d="M2 25 C24 28 26 13 45 15 S70 20 84 12 104 4 118 10 137 22 158 6" />
+        </svg>
+      </article>
+
+      <article class="fx-card balance" style="--tone:#9ac8ff">
+        <div class="fx-card__label"><span>Balance</span><span>Live</span></div>
+        <div class="fx-card__value">$62.1K</div>
+        <svg class="fx-card__spark" viewBox="0 0 160 34" preserveAspectRatio="none">
+          <path d="M2 18 C16 24 25 8 40 12 S62 28 79 21 100 6 116 12 139 19 158 10" />
+        </svg>
+      </article>
+    </section>
+
+    <div class="fx-ticks" data-fx-ticks aria-hidden="true"></div>
+  </main>
+
+  <script>
+    (() => {
+      const root = document.querySelector(".fx-wallpaper");
+      const canvas = root.querySelector("[data-fx-canvas]");
+      const ctx = canvas.getContext("2d", { alpha: true });
+      const market = root.querySelector("[data-fx-market]");
+      const streaks = root.querySelector("[data-fx-streaks]");
+      const ticks = root.querySelector("[data-fx-ticks]");
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const config = {
+        particleDensityDivisor: 22000,
+        stockLineCount: 13,
+        streakCount: 16,
+        tickMax: 24,
+        connectionDistance: 190,
+      };
+
+      const palette = ["#45b9ff", "#7bf0ff", "#87ffc9", "#ffbf66", "#ff7e9d"];
+      const anchors = [
+        { x: 0.16, y: 0.25, tone: "#45b9ff" },
+        { x: 0.36, y: 0.64, tone: "#87ffc9" },
+        { x: 0.56, y: 0.36, tone: "#ffbf66" },
+        { x: 0.74, y: 0.22, tone: "#7bf0ff" },
+        { x: 0.82, y: 0.72, tone: "#ffbf66" },
+        { x: 0.25, y: 0.78, tone: "#7fffd2" },
+        { x: 0.48, y: 0.18, tone: "#9ac8ff" },
+        { x: 0.68, y: 0.55, tone: "#45b9ff" },
+      ];
+
+      const symbols = ["NVDA", "AAPL", "MSFT", "TSLA", "AMZN", "META", "CASH", "FLOW", "SPX", "BTC", "USD", "APY"];
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let particles = [];
+      let nodes = [];
+      let tickTimer = 0;
+      let previous = performance.now();
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function random(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        buildNodes();
+        buildParticles();
+      }
+
+      function buildNodes() {
+        nodes = anchors.map((anchor, index) => ({
+          x: anchor.x * width,
+          y: anchor.y * height,
+          tone: anchor.tone,
+          phase: index * 0.84,
+          radius: random(2.5, 4.8),
+        }));
+      }
+
+      function buildParticles() {
+        const count = reducedMotion ? 28 : clamp(Math.floor((width * height) / config.particleDensityDivisor), 48, 160);
+        particles = Array.from({ length: count }, () => ({
+          x: random(0, width),
+          y: random(0, height),
+          vx: random(-0.14, 0.14),
+          vy: random(-0.10, 0.10),
+          size: random(0.75, 1.9),
+          tone: palette[Math.floor(random(0, palette.length))],
+          orbit: random(0.00055, 0.00125),
+          drift: random(-1, 1),
+        }));
+      }
+
+      function buildStocks(count = config.stockLineCount) {
+        market.replaceChildren();
+
+        for (let i = 0; i < count; i += 1) {
+          const top = random(5, 76);
+          const color = palette[i % palette.length];
+          const speed = random(18, 42);
+          const opacity = random(0.25, 0.72);
+          const points = createMarketPoints(18, 0, 100, random(18, 84));
+          const linePath = toSmoothPath(points);
+          const fillPath = `${linePath} L100 118 L0 118 Z`;
+          const line = document.createElement("div");
+          line.className = "fx-stock-line";
+          line.style.cssText = `top:${top}%;--fx-color:${color};--fx-speed:${speed}s;--fx-delay:${-random(0, speed)}s;--fx-opacity:${opacity}`;
+          line.innerHTML = `
+            <svg viewBox="0 0 100 118" preserveAspectRatio="none">
+              <path class="fx-fill" d="${fillPath}"></path>
+              <path d="${linePath}"></path>
+            </svg>
+          `;
+          market.appendChild(line);
+        }
+      }
+
+      function createMarketPoints(count, minX, maxX, baseY) {
+        const points = [];
+        let y = baseY;
+        for (let i = 0; i < count; i += 1) {
+          const x = minX + ((maxX - minX) / (count - 1)) * i;
+          y += random(-18, 18);
+          y = clamp(y, 8, 110);
+          points.push([x, y]);
+        }
+        return points;
+      }
+
+      function toSmoothPath(points) {
+        return points.reduce((path, point, index) => {
+          if (index === 0) return `M${point[0].toFixed(2)} ${point[1].toFixed(2)}`;
+          const previousPoint = points[index - 1];
+          const cx = ((previousPoint[0] + point[0]) / 2).toFixed(2);
+          return `${path} C${cx} ${previousPoint[1].toFixed(2)}, ${cx} ${point[1].toFixed(2)}, ${point[0].toFixed(2)} ${point[1].toFixed(2)}`;
+        }, "");
+      }
+
+      function buildStreaks(n = config.streakCount) {
+        streaks.replaceChildren();
+
+        for (let i = 0; i < n; i += 1) {
+          const streak = document.createElement("i");
+          streak.className = "fx-streak";
+          streak.style.cssText = [
+            `--y:${random(10, 92)}%`,
+            `--w:${random(120, 360)}px`,
+            `--r:${random(-23, -13)}deg`,
+            `--dur:${random(6.5, 13.5)}s`,
+            `--d:${-random(0, 13)}s`,
+            `--c:${palette[i % palette.length]}`,
+          ].join(";");
+          streaks.appendChild(streak);
+        }
+      }
+
+      function draw(time, delta) {
+        ctx.clearRect(0, 0, width, height);
+        drawConnections(time);
+        drawParticles(time, delta);
+        drawNodes(time);
+      }
+
+      function drawConnections(time) {
+        for (let i = 0; i < nodes.length; i += 1) {
+          for (let j = i + 1; j < nodes.length; j += 1) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distance = Math.hypot(dx, dy);
+            const threshold = Math.min(width, height) < 760 ? 260 : config.connectionDistance * 1.7;
+            if (distance > threshold) continue;
+
+            const pulse = 0.36 + Math.sin(time * 0.0017 + i * 1.9 + j) * 0.22;
+            const alpha = clamp((1 - distance / threshold) * (0.34 + pulse), 0.03, 0.44);
+            const gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            gradient.addColorStop(0, hexToRgba(a.tone, alpha));
+            gradient.addColorStop(0.5, `rgba(255,255,255,${alpha * 0.35})`);
+            gradient.addColorStop(1, hexToRgba(b.tone, alpha));
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 0.85 + pulse * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      function drawNodes(time) {
+        for (const node of nodes) {
+          const pulse = 0.5 + Math.sin(time * 0.0022 + node.phase) * 0.5;
+          ctx.save();
+          ctx.shadowColor = node.tone;
+          ctx.shadowBlur = 22 + pulse * 16;
+          ctx.fillStyle = node.tone;
+          ctx.globalAlpha = 0.75 + pulse * 0.25;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.radius + pulse * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 0.16 + pulse * 0.18;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, 18 + pulse * 10, 0, Math.PI * 2);
+          ctx.strokeStyle = node.tone;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawParticles(time, delta) {
+        const dt = clamp(delta / 16.67, 0.4, 2.2);
+
+        for (const particle of particles) {
+          const nearest = findNearestNode(particle);
+          const dx = nearest.x - particle.x;
+          const dy = nearest.y - particle.y;
+          const distance = Math.max(Math.hypot(dx, dy), 1);
+          const attraction = clamp(1 / distance, 0.0008, 0.0065);
+          const swirl = Math.sin(time * particle.orbit + particle.drift) * 0.012;
+
+          particle.vx += ((dx / distance) * attraction + (-dy / distance) * swirl) * dt;
+          particle.vy += ((dy / distance) * attraction + (dx / distance) * swirl) * dt;
+          particle.vx *= 0.986;
+          particle.vy *= 0.986;
+          particle.x += particle.vx * dt * 18;
+          particle.y += particle.vy * dt * 18;
+
+          if (particle.x < -20 || particle.x > width + 20 || particle.y < -20 || particle.y > height + 20) {
+            particle.x = random(0, width);
+            particle.y = random(0, height);
+            particle.vx = random(-0.08, 0.08);
+            particle.vy = random(-0.08, 0.08);
+          }
+
+          const alpha = clamp(0.14 + (1 - distance / 520) * 0.58, 0.12, 0.78);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.shadowColor = particle.tone;
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = particle.tone;
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function findNearestNode(particle) {
+        let nearest = nodes[0];
+        let shortest = Infinity;
+
+        for (const node of nodes) {
+          const distance = (node.x - particle.x) ** 2 + (node.y - particle.y) ** 2;
+          if (distance < shortest) {
+            shortest = distance;
+            nearest = node;
+          }
+        }
+
+        return nearest;
+      }
+
+      function spawnTick() {
+        if (ticks.children.length >= config.tickMax) return;
+
+        const positive = Math.random() > 0.38;
+        const tone = positive ? (Math.random() > 0.5 ? "#87ffc9" : "#7bf0ff") : "#ff7e9d";
+        const symbol = symbols[Math.floor(random(0, symbols.length))];
+        const value = Math.random() > 0.5
+          ? `$${random(8, 980).toFixed(Math.random() > 0.65 ? 0 : 2)}K`
+          : `${positive ? "+" : "-"}${random(0.2, 7.8).toFixed(2)}%`;
+
+        const tick = document.createElement("span");
+        tick.className = "fx-tick";
+        tick.style.left = `${random(8, 92)}%`;
+        tick.style.top = `${random(12, 86)}%`;
+        tick.style.setProperty("--tick-tone", tone);
+        tick.style.setProperty("--life", `${random(2.9, 5.2)}s`);
+        tick.innerHTML = `<strong>${symbol}</strong>${value}`;
+        tick.addEventListener("animationend", () => tick.remove(), { once: true });
+        ticks.appendChild(tick);
+      }
+
+      function animate(now) {
+        const delta = now - previous;
+        previous = now;
+        draw(now, delta);
+
+        if (!reducedMotion) {
+          tickTimer += delta;
+          if (tickTimer > random(360, 900)) {
+            tickTimer = 0;
+            spawnTick();
+          }
+          requestAnimationFrame(animate);
+        }
+      }
+
+      function hexToRgba(hex, alpha) {
+        const value = hex.replace("#", "");
+        const bigint = parseInt(value, 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `rgba(${r},${g},${b},${alpha})`;
+      }
+
+      buildStocks();
+      buildStreaks();
+      resize();
+      draw(performance.now(), 16);
+
+      if (!reducedMotion) {
+        for (let i = 0; i < 8; i += 1) {
+          setTimeout(spawnTick, i * 260);
+        }
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("resize", resize, { passive: true });
+    })();
+  </script>
+</body>
+</html>

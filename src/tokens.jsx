@@ -44,6 +44,27 @@ export const THEMES = {
     negative:  '#B85647',
     isDark:    false,
   },
+  cream: {
+    name: 'Cream',
+    canvas:    '#F4ECD8',   // warm cream / parchment
+    canvas2:   '#EDE1C7',
+    surface:   'rgba(255, 248, 232, 0.86)',
+    surface2:  'rgba(255, 248, 232, 0.96)',
+    bgSurface: '#FFFCF2',
+    hairline:  'rgba(60,45,25,0.10)',
+    hairline2: 'rgba(60,45,25,0.18)',
+    text:      '#2A1F12',
+    textDim:   '#6B5944',
+    textFaint: '#A89578',
+    axisText:  '#8A7860',
+    grid:      'rgba(60,45,25,0.06)',
+    tooltipBg: 'rgba(255,250,238,0.97)',
+    tooltipBorder: 'rgba(60,45,25,0.18)',
+    tooltipText:   '#2A1F12',
+    positive:  '#3F8B6E',
+    negative:  '#B85647',
+    isDark:    false,
+  },
 };
 
 const SF_BODY  = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif';
