@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
   PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -159,21 +159,27 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
   );
 };
 
-export const ExpensePie = ({ transactions }) => {
+export const ExpensePie = ({ transactions, selectedMonth }) => {
   const { themeTokens, fmt } = useAppContext();
   const [active, setActive] = useState(null);
   const data = useMemo(() => {
     const now = new Date();
+    const targetYear = selectedMonth?.year ?? now.getFullYear();
+    const targetMonth = selectedMonth?.month ?? now.getMonth();
     const sums = {};
     for (const tx of transactions) {
       if (tx.type !== 'expense') continue;
       const d = new Date(tx.date);
-      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) continue;
+      if (d.getMonth() !== targetMonth || d.getFullYear() !== targetYear) continue;
       sums[tx.category] = (sums[tx.category] || 0) + tx.amount;
     }
     return Object.entries(sums).map(([name, value]) => ({ name, value }))
       .sort((a,b) => b.value-a.value).slice(0, 6);
-  }, [transactions]);
+  }, [transactions, selectedMonth?.year, selectedMonth?.month]);
+
+  useEffect(() => {
+    setActive(null);
+  }, [selectedMonth?.monthKey]);
 
   const palette = [themeTokens.accent, themeTokens.accentDeep, themeTokens.accentSoft, '#7B8086', '#3F3F46', '#5C564F'];
   const total = data.reduce((s,d)=>s+d.value, 0);

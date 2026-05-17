@@ -2349,9 +2349,9 @@ export const GraphPage = () => {
       </Surface>
       <MonthPurchaseDrilldown selectedMonth={selectedMonth} transactions={transactions} themeTokens={themeTokens} fmt={fmt} />
       <Surface>
-        <Eyebrow>Spending by Category</Eyebrow>
+        <Eyebrow>Spending by Category · {selectedMonth?.monthLabel || 'This Month'}</Eyebrow>
         <div style={{ height: 12 }} />
-        <ExpensePie transactions={transactions} />
+        <ExpensePie transactions={transactions} selectedMonth={selectedMonth} />
       </Surface>
     </div>
   );
