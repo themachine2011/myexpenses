@@ -45,24 +45,27 @@ export const THEMES = {
     isDark:    false,
   },
   cream: {
-    name: 'Cream',
-    canvas:    '#F4ECD8',   // warm cream / parchment
-    canvas2:   '#EDE1C7',
-    surface:   'rgba(255, 248, 232, 0.86)',
-    surface2:  'rgba(255, 248, 232, 0.96)',
-    bgSurface: '#FFFCF2',
-    hairline:  'rgba(60,45,25,0.10)',
-    hairline2: 'rgba(60,45,25,0.18)',
-    text:      '#2A1F12',
-    textDim:   '#6B5944',
-    textFaint: '#A89578',
-    axisText:  '#8A7860',
-    grid:      'rgba(60,45,25,0.06)',
-    tooltipBg: 'rgba(255,250,238,0.97)',
-    tooltipBorder: 'rgba(60,45,25,0.18)',
-    tooltipText:   '#2A1F12',
-    positive:  '#3F8B6E',
-    negative:  '#B85647',
+    // Light mode — pure white canvas with soft "diamond" blue hairlines and
+    // black text. The key is kept as `cream` so the existing toggle and tweaks
+    // wiring stays intact; the user-facing label is "Light".
+    name: 'Light',
+    canvas:    '#FFFFFF',
+    canvas2:   '#FBFCFE',                 // barely-blue snow
+    surface:   'rgba(255,255,255,0.92)',
+    surface2:  'rgba(248,251,255,0.98)',  // subtle blue cast
+    bgSurface: '#FFFFFF',
+    hairline:  'rgba(125,170,225,0.28)',  // soft diamond-blue border
+    hairline2: 'rgba(125,170,225,0.45)',
+    text:      '#000000',                 // black font
+    textDim:   '#2E2E2E',
+    textFaint: '#7A7A7A',
+    axisText:  '#525252',
+    grid:      'rgba(125,170,225,0.10)',
+    tooltipBg: 'rgba(255,255,255,0.97)',
+    tooltipBorder: 'rgba(125,170,225,0.45)',
+    tooltipText:   '#000000',
+    positive:  '#0E8F5E',
+    negative:  '#C73E2E',
     isDark:    false,
   },
 };

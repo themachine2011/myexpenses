@@ -14,7 +14,7 @@ export const generateId = () => `tx-${Date.now()}-${Math.random().toString(36).s
 
 export const MOTO_AMOUNT = 2191;
 export const MOTO_COUNT  = 48;
-export const MOTO_PAID_COUNT = 11;
+export const MOTO_PAID_COUNT = 12;
 const MOTO_START_YEAR = 2025;
 const MOTO_START_MONTH = 4;
 const MOTO_DUE_DAY = 18;
@@ -410,6 +410,27 @@ export const useAppState = () => {
   const [view, setView]         = useState('dashboard');
 
   const [transactions, setTransactions] = useStoredState(TX_KEY, () => seedTransactions());
+
+  // One-shot migration: enforce paid/pending status on Triumph installments
+  // based on the current MOTO_PAID_COUNT. Existing localStorage data was seeded
+  // when the constant was lower, so installments paid since then need to be
+  // flipped. Idempotent — only writes if at least one row actually changes.
+  useEffect(() => {
+    setTransactions((prev) => {
+      let changed = false;
+      const next = prev.map((t) => {
+        if (typeof t?.id !== 'string' || !t.id.startsWith('moto-')) return t;
+        const i = Number(t.id.slice('moto-'.length));
+        if (!Number.isFinite(i)) return t;
+        const wantStatus = i < MOTO_PAID_COUNT ? 'paid' : 'pending';
+        if (t.status === wantStatus) return t;
+        changed = true;
+        return { ...t, status: wantStatus };
+      });
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [pickedDate, setPickedDate]         = useState(() => isoToday());
   const [activeFormCard, setActiveFormCard] = useState('VISA Mercado Pago');

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
-  PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
+  PieChart, Pie, Sector, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart,
 } from 'recharts';
 import { fmtCurrency } from './tokens.jsx';
@@ -159,41 +159,80 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
   );
 };
 
-export const ExpensePie = ({ transactions, selectedMonth }) => {
+// Active-shape renderer for the ExpensePie. Expands the hovered slice
+// outward by ~22px and adds a drop-shadow glow so the focus is unmistakable.
+const expensePieActiveShape = (props) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 22}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        stroke={fill}
+        strokeWidth={2}
+        style={{ filter: `drop-shadow(0 0 18px ${fill})` }}
+      />
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={outerRadius + 26}
+        outerRadius={outerRadius + 30}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.35}
+      />
+    </g>
+  );
+};
+
+export const ExpensePie = ({ transactions, selectedMonth, range }) => {
   const { themeTokens, fmt } = useAppContext();
   const [active, setActive] = useState(null);
   const data = useMemo(() => {
     const now = new Date();
-    const targetYear = selectedMonth?.year ?? now.getFullYear();
-    const targetMonth = selectedMonth?.month ?? now.getMonth();
     const sums = {};
+    const fromY = range?.fromYear ?? selectedMonth?.year ?? now.getFullYear();
+    const toY   = range?.toYear   ?? selectedMonth?.year ?? now.getFullYear();
+    const fromM = range?.fromMonth ?? selectedMonth?.month ?? now.getMonth();
+    const toM   = range?.toMonth   ?? selectedMonth?.month ?? now.getMonth();
+    const inRange = (d) => {
+      const y = d.getFullYear(), m = d.getMonth();
+      const key = y * 12 + m;
+      return key >= (fromY * 12 + fromM) && key <= (toY * 12 + toM);
+    };
     for (const tx of transactions) {
       if (tx.type !== 'expense') continue;
       const d = new Date(tx.date);
-      if (d.getMonth() !== targetMonth || d.getFullYear() !== targetYear) continue;
+      if (!inRange(d)) continue;
       sums[tx.category] = (sums[tx.category] || 0) + tx.amount;
     }
     return Object.entries(sums).map(([name, value]) => ({ name, value }))
       .sort((a,b) => b.value-a.value).slice(0, 6);
-  }, [transactions, selectedMonth?.year, selectedMonth?.month]);
+  }, [transactions, range?.fromYear, range?.fromMonth, range?.toYear, range?.toMonth, selectedMonth?.year, selectedMonth?.month]);
 
   useEffect(() => {
     setActive(null);
-  }, [selectedMonth?.monthKey]);
+  }, [selectedMonth?.monthKey, range?.fromMonth, range?.toMonth, range?.fromYear, range?.toYear]);
 
   const palette = [themeTokens.accent, themeTokens.accentDeep, themeTokens.accentSoft, '#7B8086', '#3F3F46', '#5C564F'];
   const total = data.reduce((s,d)=>s+d.value, 0);
 
   return (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 24, alignItems:'center' }}>
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={260}>
         <PieChart>
-          <Pie data={data} dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={2}
+          <Pie data={data} dataKey="value" innerRadius={64} outerRadius={94} paddingAngle={2}
                isAnimationActive animationDuration={900}
+               activeIndex={active != null ? active : -1}
+               activeShape={expensePieActiveShape}
                onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
             {data.map((_,i) => (
               <Cell key={i} fill={palette[i % palette.length]} stroke="none"
-                    style={{ filter: active===i ? `drop-shadow(0 0 12px ${palette[i % palette.length]})` : 'none', transition:'filter 200ms' }} />
+                    style={{ transition:'filter 200ms' }} />
             ))}
           </Pie>
           <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
@@ -222,6 +261,7 @@ export const ExpensePie = ({ transactions, selectedMonth }) => {
 
 export const ComposedFlow = ({ data, onMonthSelect, selectedMonthKey }) => {
   const { themeTokens, fmt } = useAppContext();
+  const [hoverIdx, setHoverIdx] = useState(null);
   const barClick = (entry) => {
     const payload = entry?.payload || entry;
     if (payload) onMonthSelect?.(payload);
@@ -231,30 +271,72 @@ export const ComposedFlow = ({ data, onMonthSelect, selectedMonthKey }) => {
     if (payload) onMonthSelect?.(payload);
   };
   const barCursor = onMonthSelect ? 'pointer' : 'default';
+
+  // Active-bar shape: same rect drawn slightly wider with a glowing stroke +
+  // drop-shadow so a hovered column visually pops out of the chart.
+  const activeBarShape = (fillColor) => (props) => {
+    const { x, y, width, height } = props;
+    const grow = Math.max(2, width * 0.18);
+    return (
+      <rect
+        x={x - grow / 2}
+        y={y - 2}
+        width={width + grow}
+        height={height + 2}
+        fill={fillColor}
+        stroke={themeTokens.text}
+        strokeWidth={1.2}
+        rx={6}
+        style={{ filter: `drop-shadow(0 0 14px ${fillColor})` }}
+      />
+    );
+  };
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }} onClick={chartClick}>
+      <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+        onClick={chartClick}
+        onMouseMove={(s) => {
+          if (s && typeof s.activeTooltipIndex === 'number') setHoverIdx(s.activeTooltipIndex);
+        }}
+        onMouseLeave={() => setHoverIdx(null)}>
         <CartesianGrid stroke={themeTokens.grid} strokeDasharray="2 4" vertical={false} />
         <XAxis dataKey="label" tickLine={false} axisLine={false}
                tick={{ fill: themeTokens.textDim, fontSize: 11, fontFamily:'var(--font-mono)' }} />
         <YAxis tickLine={false} axisLine={false} width={56}
                tickFormatter={(v) => `${(v/1000).toFixed(0)}k`}
                tick={{ fill: themeTokens.textDim, fontSize: 10, fontFamily:'var(--font-mono)' }} />
-        <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
+        <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} cursor={false} />
         <Bar dataKey="fixed" stackId="x" name="Fixed" fill={themeTokens.accentDeep} radius={[0,0,0,0]}
-             isAnimationActive animationDuration={900} onClick={barClick} style={{ cursor: barCursor }}>
-          {data.map((entry) => (
-            <Cell key={`fixed-${entry.monthKey}`} fill={entry.monthKey === selectedMonthKey ? themeTokens.accentSoft : themeTokens.accentDeep} />
-          ))}
+             isAnimationActive animationDuration={900} onClick={barClick} style={{ cursor: barCursor }}
+             activeBar={activeBarShape(themeTokens.accentDeep)}>
+          {data.map((entry, i) => {
+            const isSel = entry.monthKey === selectedMonthKey;
+            const isHov = i === hoverIdx;
+            return (
+              <Cell key={`fixed-${entry.monthKey}`}
+                fill={isSel ? themeTokens.accentSoft : themeTokens.accentDeep}
+                opacity={(hoverIdx == null || isHov || isSel) ? 1 : 0.35}
+              />
+            );
+          })}
         </Bar>
         <Bar dataKey="variable" stackId="x" name="Variable" fill={themeTokens.accent} radius={[6,6,0,0]}
-             isAnimationActive animationDuration={900} onClick={barClick} style={{ cursor: barCursor }}>
-          {data.map((entry) => (
-            <Cell key={`variable-${entry.monthKey}`} fill={entry.monthKey === selectedMonthKey ? themeTokens.accentSoft : themeTokens.accent} />
-          ))}
+             isAnimationActive animationDuration={900} onClick={barClick} style={{ cursor: barCursor }}
+             activeBar={activeBarShape(themeTokens.accent)}>
+          {data.map((entry, i) => {
+            const isSel = entry.monthKey === selectedMonthKey;
+            const isHov = i === hoverIdx;
+            return (
+              <Cell key={`variable-${entry.monthKey}`}
+                fill={isSel ? themeTokens.accentSoft : themeTokens.accent}
+                opacity={(hoverIdx == null || isHov || isSel) ? 1 : 0.35}
+              />
+            );
+          })}
         </Bar>
         <Line type="monotone" dataKey="income" name="Income" stroke={themeTokens.positive} strokeWidth={2.2}
-              dot={{ fill: themeTokens.positive, r: 3 }} isAnimationActive animationDuration={1100} />
+              dot={{ fill: themeTokens.positive, r: 3 }} isAnimationActive animationDuration={1100}
+              activeDot={{ r: 6, fill: themeTokens.positive, stroke: themeTokens.text, strokeWidth: 1.5 }} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -338,6 +420,32 @@ export const RetentionBar = ({ data, accent, soft, hairline }) => {
       </BarChart>
     </ResponsiveContainer>
   );
+};
+
+// Calendar-year series: 12 entries Jan–Dec for the given year. Used by the
+// Graphs page so the default window is always Jan 1 → Dec 31 of one year.
+export const buildYearSeries = (transactions, year) => {
+  const out = [];
+  for (let m = 0; m < 12; m++) {
+    const base = new Date(year, m, 1);
+    let income = 0, fixed = 0, variable = 0;
+    for (const tx of transactions) {
+      const d = new Date(tx.date);
+      if (d.getFullYear() !== year || d.getMonth() !== m) continue;
+      if (tx.type === 'income') income += tx.amount;
+      else if (tx.locked) fixed += tx.amount;
+      else variable += tx.amount;
+    }
+    const cashflow = income - fixed - variable;
+    out.push({
+      label: base.toLocaleString('en-US', { month: 'short' }),
+      monthLabel: base.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+      monthKey: `${year}-${String(m + 1).padStart(2, '0')}`,
+      year, month: m,
+      income, fixed, variable, expense: fixed + variable, cashflow,
+    });
+  }
+  return out;
 };
 
 export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward = 0) => {

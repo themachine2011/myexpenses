@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
 import { resolveRange, CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
 import { fmtCurrency } from './tokens.jsx';
-import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries } from './charts.jsx';
+import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 
@@ -2315,43 +2315,108 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
 };
 
 export const GraphPage = () => {
-  const { transactions, themeTokens, fmt } = useAppContext();
-  const series = useMemo(() => buildMonthlySeries(transactions, 6, 6), [transactions]);
+  const { transactions, themeTokens, fmt, pickedDate } = useAppContext();
+
+  // Default window is the current calendar year (Jan 1 → Dec 31). When the
+  // user clicks a date on the Payment Calendar, that selection drives all the
+  // graphs into single-month mode. The selection is intentionally NOT
+  // persisted — when the user leaves Graphs and comes back, the page remounts
+  // and defaults back to the full year.
+  const today = useMemo(() => new Date(), []);
+  const baselineRef = useRef(pickedDate);
   const [selectedMonth, setSelectedMonth] = useState(null);
+
+  // Watch pickedDate changes that happen AFTER mount (i.e. the user clicked a
+  // day in the Payment Calendar while on this page). On the very first render
+  // we just capture the baseline so the default year view is preserved.
+  useEffect(() => {
+    if (pickedDate === baselineRef.current) return;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(pickedDate);
+    if (!m) return;
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const base = new Date(y, mo, 1);
+    setSelectedMonth({
+      year: y, month: mo,
+      monthKey: `${y}-${String(mo + 1).padStart(2, '0')}`,
+      monthLabel: base.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+    });
+  }, [pickedDate]);
+
+  const year = selectedMonth?.year ?? today.getFullYear();
+  const series = useMemo(() => buildYearSeries(transactions, year), [transactions, year]);
+
+  // Cash flow + income headline values. When a month is selected, show that
+  // month's value; otherwise sum the whole 12-month window.
+  const headline = useMemo(() => {
+    if (selectedMonth) {
+      const m = series.find((r) => r.monthKey === selectedMonth.monthKey);
+      return { cashflow: m?.cashflow || 0, income: m?.income || 0 };
+    }
+    return series.reduce(
+      (acc, r) => ({ cashflow: acc.cashflow + r.cashflow, income: acc.income + r.income }),
+      { cashflow: 0, income: 0 }
+    );
+  }, [series, selectedMonth?.monthKey]);
+
+  const cashflowEyebrow = selectedMonth ? `Cash Flow · ${selectedMonth.monthLabel}` : `Cash Flow · ${year}`;
+  const incomeEyebrow   = selectedMonth ? `Income · ${selectedMonth.monthLabel}`    : `Income · ${year}`;
+  const composedEyebrow = selectedMonth ? `Income vs Fixed + Variable · ${selectedMonth.monthLabel}` : `Income vs Fixed + Variable · ${year}`;
+  const pieEyebrow      = selectedMonth ? `Spending by Category · ${selectedMonth.monthLabel}` : `Spending by Category · ${year}`;
+
+  // Range passed to ExpensePie. Year mode = Jan→Dec of the year, month mode =
+  // just that month.
+  const pieRange = selectedMonth
+    ? { fromYear: selectedMonth.year, fromMonth: selectedMonth.month, toYear: selectedMonth.year, toMonth: selectedMonth.month }
+    : { fromYear: year, fromMonth: 0, toYear: year, toMonth: 11 };
+
+  const clearSelection = () => { setSelectedMonth(null); };
+
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <Surface>
-          <Eyebrow>Cash Flow · 14-month window</Eyebrow>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <Eyebrow>{cashflowEyebrow}</Eyebrow>
+            {selectedMonth && (
+              <button onClick={clearSelection}
+                style={{
+                  background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer',
+                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase',
+                }}>Clear month ✕</button>
+            )}
+          </div>
           <Display size={36}
-            color={(series[series.length - 1]?.cashflow || 0) >= 0 ? themeTokens.positive : themeTokens.negative}>
-            {fmtCurrency(series[series.length - 1]?.cashflow || 0, 'BRL')}
+            color={(headline.cashflow || 0) >= 0 ? themeTokens.positive : themeTokens.negative}>
+            {fmtCurrency(headline.cashflow || 0, 'BRL')}
           </Display>
           <div style={{ height: 12 }} />
           <AreaSpark data={series} dataKey="cashflow" accent={themeTokens.accent} tokens={themeTokens} height={220} />
         </Surface>
         <Surface>
-          <Eyebrow>Income · 14-month window</Eyebrow>
-          <Display size={36} color={themeTokens.positive}>{fmtCurrency(series[series.length - 1]?.income || 0, 'BRL')}</Display>
+          <Eyebrow>{incomeEyebrow}</Eyebrow>
+          <Display size={36} color={themeTokens.positive}>{fmtCurrency(headline.income || 0, 'BRL')}</Display>
           <div style={{ height: 12 }} />
           <AreaSpark data={series} dataKey="income" accent={themeTokens.positive} tokens={themeTokens} height={220} />
         </Surface>
       </div>
       <Surface>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Eyebrow>Income vs Fixed + Variable</Eyebrow>
+          <Eyebrow>{composedEyebrow}</Eyebrow>
           <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-            Click a column to show month purchases
+            Click a column · or pick a day in the Payment Calendar
           </span>
         </div>
         <div style={{ height: 12 }} />
-        <ComposedFlow data={series} onMonthSelect={setSelectedMonth} selectedMonthKey={selectedMonth?.monthKey} />
+        <ComposedFlow data={series} onMonthSelect={(p) => setSelectedMonth({
+          year: p.year, month: p.month, monthKey: p.monthKey, monthLabel: p.monthLabel,
+        })} selectedMonthKey={selectedMonth?.monthKey} />
       </Surface>
       <MonthPurchaseDrilldown selectedMonth={selectedMonth} transactions={transactions} themeTokens={themeTokens} fmt={fmt} />
       <Surface>
-        <Eyebrow>Spending by Category · {selectedMonth?.monthLabel || 'This Month'}</Eyebrow>
+        <Eyebrow>{pieEyebrow}</Eyebrow>
         <div style={{ height: 12 }} />
-        <ExpensePie transactions={transactions} selectedMonth={selectedMonth} />
+        <ExpensePie transactions={transactions} selectedMonth={selectedMonth} range={pieRange} />
       </Surface>
     </div>
   );
@@ -4669,7 +4734,18 @@ export const MotorcyclePage = () => {
   const totalDebt    = MOTO_AMOUNT * MOTO_COUNT;
   const paidValue    = paidCount * MOTO_AMOUNT;
   const remaining    = totalDebt - paidValue;
-  const nextDue      = schedule.find((t) => t.status === 'pending');
+  // Next due = first pending installment whose date is on or after today. If all
+  // pendings are past-due, fall back to the very first pending so we still show
+  // something meaningful instead of nothing.
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const nextDue = (
+    schedule.find((t) => t.status === 'pending' && new Date(t.date) >= todayStart)
+    || schedule.find((t) => t.status === 'pending')
+  );
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -4797,48 +4873,151 @@ export const MotorcyclePage = () => {
         </div>
       </Surface>
 
-      <Surface style={{ padding: 0 }}>
-        <div style={{ maxHeight: 480, overflow: 'auto' }}>
+      <ScheduleGrid schedule={schedule} themeTokens={themeTokens} fmt={fmt}
+        nextDueId={nextDue?.id} todayStart={todayStart} />
+    </div>
+  );
+};
+
+// Compact grid of installment cards, scrollable when content overflows.
+// Auto-fits 4–6 columns depending on width. Highlights the next-due card and
+// shows a small down-arrow hint when more rows exist below the fold.
+const ScheduleGrid = ({ schedule, themeTokens, fmt, nextDueId, todayStart }) => {
+  const scrollRef = useRef(null);
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+
+  // Auto-scroll the next-due card into view on mount so the user sees what
+  // matters first without manual scrolling.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.querySelector('[data-next-due="true"]');
+    if (target) {
+      const top = target.offsetTop - el.offsetTop - 12;
+      el.scrollTo({ top, behavior: 'smooth' });
+    }
+  }, [nextDueId]);
+
+  // Track whether the scroll container can scroll further down so we can
+  // show / hide the "more below" indicator dynamically.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      setHasMoreBelow(el.scrollTop + el.clientHeight + 8 < el.scrollHeight);
+    };
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [schedule.length]);
+
+  const jumpDown = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ top: Math.max(120, el.clientHeight * 0.8), behavior: 'smooth' });
+  };
+
+  return (
+    <Surface style={{ position: 'relative' }}>
+      <div ref={scrollRef} style={{ maxHeight: 480, overflow: 'auto', paddingRight: 4 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 10,
+        }}>
           {schedule.map((tx) => {
             const d = new Date(tx.date);
             const paid = tx.status === 'paid';
+            const overdue = !paid && d < todayStart;
             const idx = (tx.installmentIndex ?? 0) + 1;
+            const isNext = tx.id === nextDueId;
+
+            const borderColor = isNext
+              ? themeTokens.accent
+              : overdue
+                ? themeTokens.negative
+                : paid
+                  ? themeTokens.hairline2
+                  : themeTokens.hairline;
+            const tintBg = isNext
+              ? `${themeTokens.accent}1A`
+              : overdue
+                ? `${themeTokens.negative}10`
+                : 'transparent';
+
             return (
-              <div key={tx.id} style={{
-                display: 'grid', gridTemplateColumns: '64px 1fr auto auto', gap: 16,
-                padding: '14px 22px', borderBottom: `1px solid ${themeTokens.hairline}`,
-                alignItems: 'center', opacity: paid ? 0.55 : 1,
-              }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: themeTokens.textDim, letterSpacing: '0.18em' }}>
-                  {String(idx).padStart(2, '0')}/{MOTO_COUNT}
+              <div key={tx.id}
+                data-next-due={isNext ? 'true' : undefined}
+                style={{
+                  background: tintBg,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: 12,
+                  padding: '12px 14px',
+                  display: 'grid', gap: 6,
+                  opacity: paid ? 0.55 : 1,
+                  boxShadow: isNext ? `0 0 0 1px ${themeTokens.accent}, 0 8px 22px ${themeTokens.accent}22` : 'none',
+                  transition: 'all 200ms',
+                }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10,
+                    letterSpacing: '0.18em', color: themeTokens.textDim,
+                  }}>
+                    {String(idx).padStart(2, '0')}/{MOTO_COUNT}
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    padding: '2px 8px', borderRadius: 999,
+                    border: `1px solid ${paid ? themeTokens.hairline2 : (overdue ? themeTokens.negative : themeTokens.accent)}`,
+                    background: paid ? 'transparent' : (overdue ? `${themeTokens.negative}1A` : `${themeTokens.accent}1A`),
+                    color: paid ? themeTokens.textDim : (overdue ? themeTokens.negative : themeTokens.accent),
+                  }}>
+                    {paid ? 'Paid' : overdue ? 'Overdue' : isNext ? 'Next' : 'Pending'}
+                  </span>
                 </div>
-                <div>
-                  <div style={{ color: themeTokens.text, fontSize: 14 }}>
-                    {d.toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })}
-                  </div>
-                  <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 2 }}>
-                    Bank Transfer
-                  </div>
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text, minWidth: 100, textAlign: 'right' }}>
-                  {fmt(tx.amount)}
+                <div style={{ color: themeTokens.text, fontSize: 14, fontWeight: 500 }}>
+                  {d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </div>
                 <div style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase',
-                  padding: '4px 10px', borderRadius: 999,
-                  border: `1px solid ${paid ? themeTokens.hairline2 : themeTokens.accent}`,
-                  background: paid ? 'transparent' : `${themeTokens.accent}1A`,
-                  color: paid ? themeTokens.textDim : themeTokens.accent,
-                  minWidth: 72, textAlign: 'center',
+                  fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text,
+                  marginTop: 2,
                 }}>
-                  {paid ? 'Paid' : 'Pending'}
+                  {fmt(tx.amount)}
                 </div>
               </div>
             );
           })}
         </div>
-      </Surface>
-    </div>
+      </div>
+
+      {hasMoreBelow && (
+        <button
+          onClick={jumpDown}
+          aria-label="Scroll for more installments"
+          title="More installments below"
+          style={{
+            position: 'absolute', right: 18, bottom: 18,
+            width: 36, height: 36, borderRadius: '50%',
+            border: `1px solid ${themeTokens.hairline2}`,
+            background: themeTokens.surface,
+            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            color: themeTokens.text,
+            display: 'grid', placeItems: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
+            transition: 'transform 160ms',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(2px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      )}
+    </Surface>
   );
 };
 
