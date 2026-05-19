@@ -4,7 +4,17 @@
 
 const DECIMAL_RE = /^\d{1,3}(?:\.\d{3})*(?:,\d+)?$|^\d+(?:[.,]\d+)?$/;
 
-// Parse a BR-style number string ("1.234,56" or "1234,56" or "1234.56") to Number.
+// Parse a BR-style number string to Number.
+// Accepted forms:
+//   "1234"            → 1234
+//   "1234,56"         → 1234.56   (BR decimal)
+//   "1234.56"         → 1234.56   (JS-style decimal, single dot, ≠ 3 trailing digits)
+//   "1.234,56"        → 1234.56   (BR thousands + decimal)
+//   "1.000"           → 1000      (BR thousands only — fixed: previously returned 1)
+//   "1.000.000"       → 1000000   (BR thousands only — fixed: previously returned NaN)
+// The disambiguation rule for "X.YYY" with no comma:
+//   if YYY is exactly 3 digits → treat the dot as a thousands separator,
+//   otherwise → treat as JS-style decimal.
 export const parseBrNumber = (input) => {
   if (typeof input === 'number') return input;
   if (input == null) return NaN;
@@ -15,10 +25,20 @@ export const parseBrNumber = (input) => {
     if (!/^-?\d+(?:[.,]\d+)?$/.test(flexible)) return NaN;
     return Number(flexible.replace(',', '.'));
   }
-  // 1.234,56 → 1234.56 ; 1234,56 → 1234.56 ; 1234.56 → 1234.56
-  const cleaned = s.indexOf(',') >= 0
-    ? s.replace(/\./g, '').replace(',', '.')
-    : s;
+  let cleaned;
+  if (s.indexOf(',') >= 0) {
+    // BR canonical: dots are thousands, comma is decimal.
+    cleaned = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    // No comma. Could be:
+    //   - JS-style decimal:        "1.5"     (1 digit after dot)
+    //   - BR thousands grouping:   "1.000", "1.000.000"
+    // The DECIMAL_RE already passed `^\d{1,3}(?:\.\d{3})*(?:,\d+)?$|^\d+(?:[.,]\d+)?$`,
+    // so a string like "1.000.000" or any grouped form ends here. Strip dots
+    // when the structure is exactly thousands-grouped; otherwise leave alone.
+    const isGroupedThousands = /^\d{1,3}(?:\.\d{3})+$/.test(s);
+    cleaned = isGroupedThousands ? s.replace(/\./g, '') : s;
+  }
   return Number(cleaned);
 };
 
