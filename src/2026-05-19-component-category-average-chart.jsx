@@ -22,6 +22,7 @@ import {
   valueColor,
 } from './2026-05-19-utils-category-colors.js';
 import { InlineCardTitle } from './card-explanations.jsx';
+import { LockedReferenceCard } from './2026-05-18-component-locked-reference-card.jsx';
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, month) => ({
   value: month,
@@ -597,52 +598,54 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         </div>
       </div>
 
-      <div style={{
-        border: `1px solid ${themeTokens.hairline}`,
-        borderRadius: 12,
-        padding: 10,
-        background: `${themeTokens.surface2}44`,
-        display: 'grid',
-        gap: 8,
-      }}>
+      <LockedReferenceCard front={(
         <div style={{
-          color: themeTokens.textDim,
-          fontFamily: 'var(--font-mono)',
-          fontSize: 9,
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
+          border: `1px solid ${themeTokens.hairline}`,
+          borderRadius: 12,
+          padding: 10,
+          background: `${themeTokens.surface2}44`,
+          display: 'grid',
+          gap: 8,
         }}>
-          Locked reference
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div>
-            <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Avg / day
+          <div style={{
+            color: themeTokens.textDim,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+          }}>
+            Locked reference
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Avg / day
+              </div>
+              <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
+                {fmt(lockedDailyAverage)}
+              </div>
             </div>
-            <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
-              {fmt(lockedDailyAverage)}
+            <div>
+              <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Avg / month
+              </div>
+              <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
+                {fmt(lockedMonthlyAverage)}
+              </div>
             </div>
           </div>
-          <div>
-            <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Avg / month
-            </div>
-            <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
-              {fmt(lockedMonthlyAverage)}
-            </div>
+          <div style={{
+            color: themeTokens.textFaint,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            lineHeight: 1.45,
+          }}>
+            {lockedPeriodLabel} · ignores comparison filters · click to flip ↻
           </div>
         </div>
-        <div style={{
-          color: themeTokens.textFaint,
-          fontFamily: 'var(--font-mono)',
-          fontSize: 9,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          lineHeight: 1.45,
-        }}>
-          {lockedPeriodLabel} · ignores comparison filters
-        </div>
-      </div>
+      )} />
 
       {chartFrame('pie', (
         <div style={{ display: 'grid', gap: 8 }}>

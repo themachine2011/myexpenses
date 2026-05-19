@@ -653,7 +653,7 @@ export const KPICard = ({ label, value, delta, positive, valueColor, yoy }) => {
   return (
     <Surface>
       <Eyebrow>{label}</Eyebrow>
-      <Display size={42} color={valueColor}>{value}</Display>
+      <Display size={32} color={valueColor}>{value}</Display>
       {delta !== undefined &&
         <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12,
           color: positive_ ? themeTokens.positive : themeTokens.negative }}>

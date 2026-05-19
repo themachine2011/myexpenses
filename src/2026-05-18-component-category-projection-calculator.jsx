@@ -14,6 +14,7 @@ import {
   buildPresets,
   periodToMonths,
 } from './2026-05-18-logic-category-projection-calculations.js';
+import { FormulaTooltip } from './2026-05-18-component-formula-tooltip.jsx';
 
 const PERIOD_KINDS = [
   { id: 'months', label: 'Months' },
@@ -163,8 +164,19 @@ export const CategoryProjectionCalculator = () => {
       .filter((row) => row.category !== 'Income')
       .map((row) => {
         const future = futureByCategory.get(row.category);
-        const futureTotal = Number(future?.total) || 0;
-        const futureAverage = Number(future?.averagePerMonth ?? future?.average) || 0;
+        const futureTotalRaw = Number(future?.total) || 0;
+        const futureAverageRaw = Number(future?.averagePerMonth ?? future?.average) || 0;
+        // Triumph financing: the schedule lists 48 installments — the current
+        // month's payment is already counted in the historical/actual sum, and
+        // the future schedule lists every remaining installment. Adding the
+        // future average on top double-counts the recurring R$ MOTO_AMOUNT and
+        // makes the projection avg show 2× the real monthly burden. For this
+        // category we keep the historical average only. Every other category
+        // continues to use historical + future so recurring subscriptions etc.
+        // still surface scheduled spend.
+        const isTriumph = !!row.isTriumphFinancing;
+        const futureTotal = isTriumph ? 0 : futureTotalRaw;
+        const futureAverage = isTriumph ? 0 : futureAverageRaw;
         return {
           ...row,
           futureTotal,
@@ -339,7 +351,29 @@ export const CategoryProjectionCalculator = () => {
   const differenceLabel = isPositiveSavings ? 'Saved' : 'Extra spend';
   const differenceColor = isPositiveSavings ? themeTokens.positive : themeTokens.negative;
 
-  const ResultRow = ({ k, v, accent }) => (
+  // Plain-English description of how `newMonthlyAvg` was derived. Used by the
+  // formula tooltips on the projection result rows.
+  const adjustmentExplanation = (() => {
+    const baselineAvg = currentRow.average || (shown.baseline / Math.max(1, shown.months));
+    if (presetResult) {
+      return `Preset applied: "${presetResult.preset.label}".\nBaseline avg ${fmt(baselineAvg)} → adjusted to ${fmt(shown.newMonthlyAvg ?? 0)}.`;
+    }
+    if (monthlyCap !== '' && Number.isFinite(Number(monthlyCap))) {
+      return `Monthly cap applied: min(${fmt(baselineAvg)}, ${fmt(Number(monthlyCap))}) = ${fmt(shown.newMonthlyAvg ?? 0)}.`;
+    }
+    if (fixedAdjustment !== '' && Number.isFinite(Number(fixedAdjustment))) {
+      const sign = adjustmentDirection === 'increase' ? '+' : '−';
+      return `Fixed amount: ${fmt(baselineAvg)} ${sign} ${fmt(Number(fixedAdjustment))} = ${fmt(shown.newMonthlyAvg ?? 0)} per month.`;
+    }
+    if (adjustmentPct !== '' && Number.isFinite(Number(adjustmentPct))) {
+      const pct = Number(adjustmentPct);
+      const op = adjustmentDirection === 'increase' ? `× (1 + ${pct}/100)` : `× (1 − ${pct}/100)`;
+      return `Percentage: ${fmt(baselineAvg)} ${op} = ${fmt(shown.newMonthlyAvg ?? 0)} per month.`;
+    }
+    return `No adjustment applied — projected average stays at ${fmt(shown.newMonthlyAvg ?? 0)} per month.`;
+  })();
+
+  const ResultRow = ({ k, v, accent, formula }) => (
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
@@ -355,12 +389,14 @@ export const CategoryProjectionCalculator = () => {
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
       }}>{k}</span>
-      <span style={{
-        color: accent || themeTokens.text,
-        fontFamily: 'var(--font-mono)',
-        fontSize: 12,
-        whiteSpace: 'nowrap',
-      }}>{v}</span>
+      <FormulaTooltip formula={formula}>
+        <span style={{
+          color: accent || themeTokens.text,
+          fontFamily: 'var(--font-mono)',
+          fontSize: 12,
+          whiteSpace: 'nowrap',
+        }}>{v}</span>
+      </FormulaTooltip>
     </div>
   );
 
@@ -524,11 +560,21 @@ export const CategoryProjectionCalculator = () => {
         background: `${themeTokens.surface2}66`,
       }}>
         <div style={labelStyle}>{isAggregate ? currentRow.label : (currentRow.label || getCategoryDisplayName(currentRow.category))} · actuals</div>
-        <ResultRow k="Actual in period" v={fmt(selectedActualTotal)} />
-        <ResultRow k="Future in horizon" v={fmt(selectedFutureTotal)} />
-        <ResultRow k="Historical avg/mo" v={fmt(selectedHistoricalAverage)} />
-        <ResultRow k="Projection avg/mo" v={fmt(selectedAverage)} />
-        <ResultRow k="Months averaged" v={historyPeriod.monthsIncluded} />
+        <ResultRow k="Actual in period" v={fmt(selectedActualTotal)}
+          formula={`Formula:\nActual = sum of transactions in the period, for the selected category.\n\nSource: actual Transactions data\nPeriod: ${historyPeriod.label}\n\nValue: ${fmt(selectedActualTotal)}`}
+        />
+        <ResultRow k="Future in horizon" v={fmt(selectedFutureTotal)}
+          formula={`Formula:\nFuture in horizon = sum of scheduled / locked future transactions within the projection period.\n\nSource: combined — Transactions dated ahead + locked installments\n\nValue: ${fmt(selectedFutureTotal)}`}
+        />
+        <ResultRow k="Historical avg/mo" v={fmt(selectedHistoricalAverage)}
+          formula={`Formula:\nHistorical avg/mo = total actual spending ÷ months in period.\n\n${fmt(selectedActualTotal)} ÷ ${historyPeriod.monthsIncluded} month${historyPeriod.monthsIncluded === 1 ? '' : 's'} = ${fmt(selectedHistoricalAverage)}\n\nSource: actual Transactions data only`}
+        />
+        <ResultRow k="Projection avg/mo" v={fmt(selectedAverage)}
+          formula={`Formula:\nProjection avg/mo = baseline monthly spend used by the calculator.\n\nIt blends actual historical average with any known future obligations so the projection reflects what is realistically expected per month.\n\nSource: combined — historical Transactions + scheduled future spend\n\nValue: ${fmt(selectedAverage)}`}
+        />
+        <ResultRow k="Months averaged" v={historyPeriod.monthsIncluded}
+          formula={`Formula:\nMonths averaged = number of full months in the selected historical period.\n\nPeriod: ${historyPeriod.label}\nMonths: ${historyPeriod.monthsIncluded}`}
+        />
       </div>
 
       <div>
@@ -686,14 +732,26 @@ export const CategoryProjectionCalculator = () => {
         }}>
           {isAggregate ? currentRow.label : (currentRow.label || getCategoryDisplayName(currentRow.category))} · {shownLabel}
         </div>
-        <ResultRow k="Baseline total" v={fmt(shown.baseline)} />
-        <ResultRow k="Projected total" v={fmt(shown.reduced)} accent={themeTokens.text} />
-        <ResultRow k={differenceLabel} v={fmt(Math.abs(shown.savings || 0))} accent={differenceColor} />
-        <ResultRow k={`${differenceLabel}/mo`} v={fmt(Math.abs(shown.monthly || 0))} accent={differenceColor} />
+        <ResultRow k="Baseline total" v={fmt(shown.baseline)}
+          formula={`Formula:\nBaseline total = baseline monthly average × projection period.\n\n${fmt(shown.baseline / Math.max(1, shown.months))} × ${shown.months} month${shown.months === 1 ? '' : 's'} = ${fmt(shown.baseline)}\n\nThis is the spend with NO adjustment applied.\nSource: projected data`}
+        />
+        <ResultRow k="Projected total" v={fmt(shown.reduced)} accent={themeTokens.text}
+          formula={`Formula:\nProjected total = adjusted monthly average × projection period.\n\n${fmt(shown.newMonthlyAvg ?? 0)} × ${shown.months} month${shown.months === 1 ? '' : 's'} = ${fmt(shown.reduced)}\n\n${adjustmentExplanation}\nSource: projected data`}
+        />
+        <ResultRow k={differenceLabel} v={fmt(Math.abs(shown.savings || 0))} accent={differenceColor}
+          formula={`Formula:\n${differenceLabel} = baseline total − projected total.\n\n${fmt(shown.baseline)} − ${fmt(shown.reduced)} = ${(shown.savings || 0) >= 0 ? '' : '−'}${fmt(Math.abs(shown.savings || 0))}\n\n${isPositiveSavings ? 'A positive number means you save that much over the whole projection period.' : 'A negative number means the adjustment makes you spend MORE over the whole projection period.'}\nSource: projected data`}
+        />
+        <ResultRow k={`${differenceLabel}/mo`} v={fmt(Math.abs(shown.monthly || 0))} accent={differenceColor}
+          formula={`Formula:\n${differenceLabel}/mo = ${differenceLabel.toLowerCase()} ÷ projection months.\n\n${fmt(Math.abs(shown.savings || 0))} ÷ ${shown.months} month${shown.months === 1 ? '' : 's'} = ${fmt(Math.abs(shown.monthly || 0))} per month\n\nSource: projected data`}
+        />
         {shown.months >= 12 && (
-          <ResultRow k={`${differenceLabel}/year`} v={fmt(Math.abs(shown.yearly || 0))} accent={differenceColor} />
+          <ResultRow k={`${differenceLabel}/year`} v={fmt(Math.abs(shown.yearly || 0))} accent={differenceColor}
+            formula={`Formula:\n${differenceLabel}/year = monthly ${differenceLabel.toLowerCase()} × 12.\n\n${fmt(Math.abs(shown.monthly || 0))} × 12 = ${fmt(Math.abs(shown.yearly || 0))}\n\nSource: projected data`}
+          />
         )}
-        <ResultRow k="Projected avg/mo" v={fmt(shown.newMonthlyAvg ?? 0)} />
+        <ResultRow k="Projected avg/mo" v={fmt(shown.newMonthlyAvg ?? 0)}
+          formula={`Formula:\nProjected avg/mo = baseline monthly average after the adjustment is applied.\n\n${adjustmentExplanation}\n\nResult: ${fmt(shown.newMonthlyAvg ?? 0)} per month\nSource: projected data`}
+        />
       </div>
 
       <div>
