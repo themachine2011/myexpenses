@@ -9,6 +9,7 @@ import {
   AllTransactionsPage, SubscriptionsPage, CardPurchasesPage,
   ParticleField, GlobalCalendar, HistorySidebar, GlobalSearch,
 } from './pages.jsx';
+import { DashboardCategoriesAverageSpendingFeature } from './2026-05-19-feature-categories-average-spending.jsx';
 import {
   useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect, TweakButton, TweakSlider,
 } from './tweaks-panel.jsx';
@@ -235,7 +236,9 @@ const App = () => {
           alignItems: 'start',
         }}>
           <aside style={{ position: 'sticky', top: 96, display: 'grid', gap: 16 }}>
-            <GlobalCalendar />
+            {state.view === 'dashboard'
+              ? <DashboardCategoriesAverageSpendingFeature />
+              : <GlobalCalendar />}
           </aside>
 
           <div style={{ minWidth: 0 }}>

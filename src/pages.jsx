@@ -1356,6 +1356,10 @@ export const Dashboard = () => {
   const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta } = useAppContext();
   const [timeRange, setTimeRange] = useState(6);
   const series = useMemo(() => buildMonthlySeries(transactions, 1, timeRange - 2), [transactions, timeRange]);
+  const dashboardCategoryTransactions = useMemo(
+    () => transactions.filter((t) => t.category !== 'Financing'),
+    [transactions]
+  );
 
   const currentMonth = series[1] || { income: 0, fixed: 0, variable: 0, cashflow: 0 };
   const prevMonth = series[0] || { income: 1, cashflow: 1 };
@@ -1445,7 +1449,7 @@ export const Dashboard = () => {
         <Surface>
           <Eyebrow>Spending by Category · This Month</Eyebrow>
           <div style={{ height: 12 }} />
-          <ExpensePie transactions={transactions} />
+          <ExpensePie transactions={dashboardCategoryTransactions} />
         </Surface>
       </div>
 
