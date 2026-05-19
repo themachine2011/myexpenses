@@ -9,6 +9,7 @@ import {
   AllTransactionsPage, SubscriptionsPage, CardPurchasesPage,
   ParticleField, GlobalCalendar, HistorySidebar, GlobalSearch,
 } from './pages.jsx';
+import { DashboardCategoriesAverageSpendingFeature } from './2026-05-19-feature-categories-average-spending.jsx';
 import {
   useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect, TweakButton, TweakSlider,
 } from './tweaks-panel.jsx';
@@ -235,7 +236,9 @@ const App = () => {
           alignItems: 'start',
         }}>
           <aside style={{ position: 'sticky', top: 96, display: 'grid', gap: 16 }}>
-            <GlobalCalendar />
+            {state.view === 'dashboard'
+              ? <DashboardCategoriesAverageSpendingFeature />
+              : <GlobalCalendar />}
           </aside>
 
           <div style={{ minWidth: 0 }}>
@@ -261,8 +264,8 @@ const App = () => {
             the dark Onyx mode and the warm Cream mode. */}
         <button
           onClick={() => setTweak('theme', tweaks.theme === 'cream' ? 'onyx' : 'cream')}
-          aria-label={tweaks.theme === 'cream' ? 'Switch to dark mode' : 'Switch to cream light mode'}
-          title={tweaks.theme === 'cream' ? 'Switch to Onyx (dark)' : 'Switch to Cream (light)'}
+          aria-label={tweaks.theme === 'cream' ? 'Switch to dark mode' : 'Switch to light mode'}
+          title={tweaks.theme === 'cream' ? 'Switch to Onyx (dark)' : 'Switch to Light (white)'}
           style={{
             position: 'fixed', left: 24, bottom: 24, zIndex: 100,
             width: 56, height: 56, borderRadius: '50%',
@@ -306,7 +309,7 @@ const App = () => {
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Theme" />
-          <TweakRadio label="Mode" value={tweaks.theme} options={[{ value: 'onyx', label: 'Onyx' }, { value: 'ivory', label: 'Ivory' }, { value: 'cream', label: 'Cream' }]} onChange={(v) => setTweak('theme', v)} />
+          <TweakRadio label="Mode" value={tweaks.theme} options={[{ value: 'onyx', label: 'Onyx' }, { value: 'ivory', label: 'Ivory' }, { value: 'cream', label: 'Light' }]} onChange={(v) => setTweak('theme', v)} />
           <TweakSelect label="Accent" value={tweaks.accent} options={Object.entries(ACCENT_PRESETS).map(([k, v]) => ({ value: k, label: v.name }))} onChange={(v) => setTweak('accent', v)} />
           <TweakSelect label="Font set" value={tweaks.fontPair} options={Object.entries(FONT_PAIRS).map(([k, v]) => ({ value: k, label: v.name }))} onChange={(v) => setTweak('fontPair', v)} />
           <TweakSection label="Display" />
