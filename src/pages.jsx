@@ -7,6 +7,7 @@ import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, Radia
 import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
+import { CardExplanationButton } from './card-explanations.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -82,8 +83,13 @@ export const Eyebrow = ({ children, color }) => {
     <div style={{
       fontFamily: 'var(--font-mono)',
       fontSize: 10, letterSpacing: '0.32em', textTransform: 'uppercase',
-      color: color || themeTokens.textDim, marginBottom: 8
-    }}>{children}</div>
+      color: color || themeTokens.textDim, marginBottom: 8,
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      maxWidth: '100%',
+    }}>
+      <span style={{ minWidth: 0 }}>{children}</span>
+      <CardExplanationButton title={children} />
+    </div>
   );
 };
 
@@ -729,7 +735,7 @@ const InsightTile = ({ label, value, detail, color, themeTokens }) => (
   </div>
 );
 
-const MonthlyInsights = ({ transactions, savingsTotal, goalAmount, themeTokens, fmt }) => {
+const MonthlyInsights = ({ transactions, savingsTotal, goalAmount, themeTokens, fmt, getCategoryColor }) => {
   const { from, to } = currentMonthRange();
   const insights = useMemo(() => {
     const inMonth = transactions.filter((t) => {
@@ -756,13 +762,13 @@ const MonthlyInsights = ({ transactions, savingsTotal, goalAmount, themeTokens, 
     }
     const balance = income - expense - savings - locked;
     const sortedCats = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-    const top = sortedCats[0] ? [categoryLabel(sortedCats[0][0]), sortedCats[0][1]] : null;
+    const top = sortedCats[0] ? [categoryLabel(sortedCats[0][0]), sortedCats[0][1], sortedCats[0][0]] : null;
     const totalExpense = Math.max(1, expense);
     const distribution = sortedCats.slice(0, 5).map(([k, v]) => ({
-      name: categoryLabel(k), value: v, pct: (v / totalExpense) * 100,
+      name: categoryLabel(k), category: k, value: v, pct: (v / totalExpense) * 100, color: getCategoryColor(k),
     }));
     return { income, expense, savings, locked, balance, top, distribution };
-  }, [transactions, from.getTime(), to.getTime()]);
+  }, [transactions, getCategoryColor, from.getTime(), to.getTime()]);
 
   // Savings progression: last 6 months cumulative savings
   const savingsProgression = useMemo(() => {
@@ -808,7 +814,7 @@ const MonthlyInsights = ({ transactions, savingsTotal, goalAmount, themeTokens, 
           label="Top Spend"
           value={insights.top ? insights.top[0] : '—'}
           detail={insights.top ? `${fmt(insights.top[1])} this month` : 'No expenses yet'}
-          color={themeTokens.accent} />
+          color={insights.top ? getCategoryColor(insights.top[2]) : themeTokens.accent} />
         <InsightTile themeTokens={themeTokens}
           label="Saved This Month"
           value={fmt(Math.max(0, insights.savings))}
@@ -842,7 +848,7 @@ const MonthlyInsights = ({ transactions, savingsTotal, goalAmount, themeTokens, 
             <div key={d.name} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 80px', gap: 12, alignItems: 'center', padding: '6px 0' }}>
               <div style={{ color: themeTokens.text, fontSize: 13 }}>{d.name}</div>
               <div style={{ height: 8, background: themeTokens.hairline, borderRadius: 999, overflow: 'hidden' }}>
-                <div style={{ width: `${d.pct}%`, height: '100%', background: `linear-gradient(90deg, ${themeTokens.accentDeep}, ${themeTokens.accent})` }} />
+                <div style={{ width: `${d.pct}%`, height: '100%', background: d.color }} />
               </div>
               <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'right' }}>
                 {d.pct.toFixed(0)}% · {fmt(d.value)}
@@ -1357,7 +1363,7 @@ const SavingsPanel = () => {
 };
 
 export const Dashboard = () => {
-  const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta } = useAppContext();
+  const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor } = useAppContext();
   const [timeRange, setTimeRange] = useState(6);
   const series = useMemo(() => buildMonthlySeries(transactions, 1, timeRange - 2), [transactions, timeRange]);
   const dashboardCategoryTransactions = useMemo(
@@ -1417,7 +1423,7 @@ export const Dashboard = () => {
 
       <PanelErrorBoundary label="Monthly Insights">
         <MonthlyInsights transactions={transactions} savingsTotal={savingsTotal} goalAmount={goalAmount}
-          themeTokens={themeTokens} fmt={fmt} />
+          themeTokens={themeTokens} fmt={fmt} getCategoryColor={getCategoryColor} />
       </PanelErrorBoundary>
 
       <PanelErrorBoundary label="Bill Reminders">

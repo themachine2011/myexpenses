@@ -87,7 +87,8 @@ export const projectAcrossCategories = ({
   increaseFixed,
   monthlyCap,
 } = {}) => {
-  const aggregateAverage = rows.reduce((sum, row) => sum + (Number(row.average) || 0), 0);
+  const averageOf = (row) => Number(row.projectionAverage ?? row.average) || 0;
+  const aggregateAverage = rows.reduce((sum, row) => sum + averageOf(row), 0);
   const aggregate = projectCategorySpend({
     avg: aggregateAverage,
     months,
@@ -103,8 +104,8 @@ export const projectAcrossCategories = ({
     perCategory: rows.map((row) => ({
       category: row.category,
       label: row.label,
-      average: row.average,
-      total: row.total,
+      average: averageOf(row),
+      total: Number(row.projectionTotal ?? row.total) || 0,
     })),
   };
 };
@@ -118,43 +119,46 @@ export const projectAcrossCategories = ({
 // Health, Gas — explicit list since no category-type metadata exists yet.
 export const NON_ESSENTIAL_EXCLUDE = new Set(['Financing', 'Insurance', 'Health', 'Gas']);
 
+const rowAverage = (row) => Number(row?.projectionAverage ?? row?.average) || 0;
+
 export const buildPresets = () => ([
   {
     id: 'cat-10-6m',
     label: 'Reduce by 10% for 6 months',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 6, reductionPct: 10 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 6, reductionPct: 10 }),
   },
   {
     id: 'cat-10-1y',
     label: 'Reduce by 10% for 1 year',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 12, reductionPct: 10 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 12, reductionPct: 10 }),
   },
   {
     id: 'cat-20-1y',
     label: 'Reduce by 20% for 1 year',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 12, reductionPct: 20 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 12, reductionPct: 20 }),
   },
   {
     id: 'cat-30-1y',
     label: 'Reduce by 30% for 1 year',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 12, reductionPct: 30 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 12, reductionPct: 30 }),
   },
   {
     id: 'cat-div-2',
     label: 'Divide average by 2',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 12, reductionPct: 50 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 12, reductionPct: 50 }),
   },
   {
     id: 'cat-div-3',
     label: 'Divide average by 3',
     scope: 'single',
     build: ({ row }) => {
-      const r = projectCategorySpend({ avg: row.average, months: 12, reductionFixed: row.average * (2 / 3) });
+      const average = rowAverage(row);
+      const r = projectCategorySpend({ avg: average, months: 12, reductionFixed: average * (2 / 3) });
       return r;
     },
   },
@@ -162,26 +166,26 @@ export const buildPresets = () => ([
     id: 'cat-compare',
     label: 'Compare current vs reduced (−10%)',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 1, reductionPct: 10 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 1, reductionPct: 10 }),
   },
   {
     id: 'cat-12m-as-is',
     label: 'Project 12 months as-is',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 12, reductionPct: 0 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 12, reductionPct: 0 }),
   },
   {
     id: 'cat-24m-as-is',
     label: 'Project 24 months as-is',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 24, reductionPct: 0 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 24, reductionPct: 0 }),
   },
   {
     id: 'cat-until-next-year',
     label: 'Savings until end of next year',
     scope: 'single',
     build: ({ row, now = new Date() }) => projectCategorySpend({
-      avg: row.average,
+      avg: rowAverage(row),
       months: periodToMonths({ kind: 'untilYear', year: now.getFullYear() + 1 }, now),
       reductionPct: 10,
     }),
@@ -190,14 +194,14 @@ export const buildPresets = () => ([
     id: 'cat-5y',
     label: 'Savings over 5 years (−10%)',
     scope: 'single',
-    build: ({ row }) => projectCategorySpend({ avg: row.average, months: 60, reductionPct: 10 }),
+    build: ({ row }) => projectCategorySpend({ avg: rowAverage(row), months: 60, reductionPct: 10 }),
   },
   {
     id: 'cat-cap',
     label: 'Apply a monthly cap',
     scope: 'single',
     needsCap: true,
-    build: ({ row, monthlyCap }) => projectCategorySpend({ avg: row.average, months: 12, monthlyCap }),
+    build: ({ row, monthlyCap }) => projectCategorySpend({ avg: rowAverage(row), months: 12, monthlyCap }),
   },
   {
     id: 'all-10-1y',

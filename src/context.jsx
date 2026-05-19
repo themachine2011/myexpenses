@@ -3,7 +3,14 @@ import { FONT_PAIRS, buildTokens, fmtCurrency } from './tokens.jsx';
 import { useStoredState, safeRead, safeWrite } from './2026-05-16-utils-storage-write-guard.jsx';
 import { validateTransaction, validatePatch } from './2026-05-16-utils-transaction-form-validation.js';
 import { findDuplicate, partitionDuplicates, buildDuplicateIndex } from './2026-05-17-utils-duplicate-detection.js';
-import { normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
+import {
+  categoryColor,
+  getDefaultCategoryColor,
+  isValidHexColor,
+  normalizeCategoryColorOverrides,
+  normalizeCategoryName,
+  USELESS_CATEGORY,
+} from './2026-05-19-utils-category-colors.js';
 
 export { validateTransaction, validatePatch };
 export { findDuplicate, partitionDuplicates, buildDuplicateIndex };
@@ -275,6 +282,7 @@ const GOALS_KEY         = 'aurum.goals.v1';
 const DEBTS_KEY         = 'aurum.debts.v1';
 const REMINDERS_KEY     = 'aurum.reminders.v1';
 const NETWORTH_HIST_KEY = 'aurum.networth.history.v1';
+const CATEGORY_COLORS_KEY = 'aurum.categoryColors.v1';
 
 // ----------------------------------------------------------------------------
 // Auto-categorization: suggest a category by walking the user-defined rules.
@@ -489,6 +497,7 @@ export const useAppState = () => {
   const [debtsState, setDebtsState] = useStoredState(DEBTS_KEY,   []);
   const [reminders, setReminders] = useStoredState(REMINDERS_KEY, []);
   const [nwHistory, setNwHistory] = useStoredState(NETWORTH_HIST_KEY, []);
+  const [categoryColorOverrides, setCategoryColorOverrides] = useStoredState(CATEGORY_COLORS_KEY, {});
   const [cashTimeframe, setCashTimeframe] = useState('current');
   const [defaultSplitMode, setDefaultSplitMode] = useState(false);
   const [focusedCardMethod, setFocusedCardMethod] = useState(null);
@@ -522,11 +531,44 @@ export const useAppState = () => {
       return changed ? next : prev;
     });
     setBudgets((prev) => normalizeCategoryMapKeys(prev));
+    setCategoryColorOverrides((prev) => {
+      const next = normalizeCategoryColorOverrides(prev);
+      const prevKeys = Object.keys(prev || {});
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length !== nextKeys.length) return next;
+      return nextKeys.some((key) => next[key] !== prev[key]) ? next : prev;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const themeTokens = useMemo(() => buildTokens(theme, accent), [theme, accent]);
   const fonts       = FONT_PAIRS[fontPair] || FONT_PAIRS.schibsted;
+  const normalizedCategoryColorOverrides = useMemo(
+    () => normalizeCategoryColorOverrides(categoryColorOverrides),
+    [categoryColorOverrides]
+  );
+  const getCategoryColor = useMemo(
+    () => (category) => categoryColor(category, normalizedCategoryColorOverrides),
+    [normalizedCategoryColorOverrides]
+  );
+  const setCategoryColor = (category, color) => {
+    if (!isValidHexColor(color)) return;
+    const key = normalizeStoredCategory(category);
+    const nextColor = String(color).trim().toUpperCase();
+    setCategoryColorOverrides((prev) => ({
+      ...normalizeCategoryColorOverrides(prev),
+      [key]: nextColor,
+    }));
+  };
+  const resetCategoryColor = (category) => {
+    const key = normalizeStoredCategory(category);
+    setCategoryColorOverrides((prev) => {
+      const next = normalizeCategoryColorOverrides(prev);
+      delete next[key];
+      return next;
+    });
+  };
+  const resetAllCategoryColors = () => setCategoryColorOverrides({});
 
   const ccStats = useMemo(() => {
     const stats = {
@@ -790,6 +832,12 @@ export const useAppState = () => {
     searchQuery, setSearchQuery,
     focusTxId, setFocusTxId,
     dateFilter, setDateFilter,
+    categoryColorOverrides: normalizedCategoryColorOverrides,
+    getCategoryColor,
+    getDefaultCategoryColor,
+    setCategoryColor,
+    resetCategoryColor,
+    resetAllCategoryColors,
     fmt: (v) => fmtCurrency(v, currency),
     computeBankBalance: (opts) => computeBankBalance(transactions, opts),
     computeAvailableCash: (opts) => computeAvailableCash(transactions, opts),

@@ -7,6 +7,7 @@ import {
 import { fmtCurrency } from './tokens.jsx';
 import { useAppContext } from './context.jsx';
 import { getCategoryDisplayName, normalizeCategoryName } from './2026-05-19-utils-category-colors.js';
+import { InlineCardTitle } from './card-explanations.jsx';
 
 export const AuTooltip = ({ active, payload, label, tokens, fmt }) => {
   if (!active || !payload || !payload.length) return null;
@@ -101,7 +102,7 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom: 16, flexWrap:'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, letterSpacing: '0.3em', textTransform:'uppercase', color: themeTokens.textDim, fontFamily: 'var(--font-mono)' }}>{cur.name}</div>
+          <InlineCardTitle style={{ fontSize: 11, letterSpacing: '0.3em', textTransform:'uppercase', color: themeTokens.textDim, fontFamily: 'var(--font-mono)' }}>{cur.name}</InlineCardTitle>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 44, lineHeight: 1, marginTop: 4, color: themeTokens.text, letterSpacing: '-0.02em' }}>
             {fmt(data[data.length-1]?.[cur.key] || 0)}
           </div>
@@ -191,7 +192,7 @@ const expensePieActiveShape = (props) => {
 };
 
 export const ExpensePie = ({ transactions, selectedMonth, range }) => {
-  const { themeTokens, fmt } = useAppContext();
+  const { themeTokens, fmt, getCategoryColor } = useAppContext();
   const [active, setActive] = useState(null);
   const data = useMemo(() => {
     const now = new Date();
@@ -212,15 +213,19 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
       const category = normalizeCategoryName(tx.category);
       sums[category] = (sums[category] || 0) + tx.amount;
     }
-    return Object.entries(sums).map(([name, value]) => ({ name: getCategoryDisplayName(name), value }))
+    return Object.entries(sums).map(([category, value]) => ({
+      name: getCategoryDisplayName(category),
+      category,
+      value,
+      color: getCategoryColor(category),
+    }))
       .sort((a,b) => b.value-a.value).slice(0, 6);
-  }, [transactions, range?.fromYear, range?.fromMonth, range?.toYear, range?.toMonth, selectedMonth?.year, selectedMonth?.month]);
+  }, [transactions, getCategoryColor, range?.fromYear, range?.fromMonth, range?.toYear, range?.toMonth, selectedMonth?.year, selectedMonth?.month]);
 
   useEffect(() => {
     setActive(null);
   }, [selectedMonth?.monthKey, range?.fromMonth, range?.toMonth, range?.fromYear, range?.toYear]);
 
-  const palette = [themeTokens.accent, themeTokens.accentDeep, themeTokens.accentSoft, '#7B8086', '#3F3F46', '#5C564F'];
   const total = data.reduce((s,d)=>s+d.value, 0);
 
   return (
@@ -232,8 +237,8 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
                activeIndex={active != null ? active : -1}
                activeShape={expensePieActiveShape}
                onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
-            {data.map((_,i) => (
-              <Cell key={i} fill={palette[i % palette.length]} stroke="none"
+            {data.map((d) => (
+              <Cell key={d.category} fill={d.color} stroke="none"
                     style={{ transition:'filter 200ms' }} />
             ))}
           </Pie>
@@ -248,7 +253,7 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
                style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:`1px solid ${themeTokens.hairline}`,
                         opacity: active===null||active===i?1:0.4, transition:'opacity 180ms' }}>
             <span style={{ display:'flex', alignItems:'center', gap: 10, color: themeTokens.text, fontSize: 13 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: palette[i % palette.length] }} />
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
               {d.name}
             </span>
             <span style={{ color: themeTokens.textDim, fontFamily:'var(--font-mono)', fontSize: 12 }}>

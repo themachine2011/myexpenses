@@ -5,6 +5,7 @@ import { CalculatorModeSwitcher } from './2026-05-18-component-calculator-mode-s
 import { NormalCalculator } from './2026-05-18-component-normal-calculator.jsx';
 import { ScientificCalculator } from './2026-05-18-component-scientific-calculator.jsx';
 import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
+import { InlineCardTitle } from './card-explanations.jsx';
 
 const SUBTITLE = {
   normal:     'Quick arithmetic',
@@ -33,13 +34,13 @@ export const DashboardCalculatorPanel = () => {
       overflow: 'hidden',
     }}>
       <div>
-        <div style={{
+        <InlineCardTitle style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 10,
           letterSpacing: '0.28em',
           textTransform: 'uppercase',
           color: themeTokens.textDim,
-        }}>Calculator</div>
+        }}>Calculator</InlineCardTitle>
         <div style={{
           marginTop: 2,
           color: themeTokens.textFaint,

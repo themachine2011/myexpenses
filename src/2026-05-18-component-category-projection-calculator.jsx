@@ -2,11 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAppContext, CATEGORIES, MOTO_AMOUNT } from './context.jsx';
 import {
   buildCategoryAverageRows,
+  buildFutureCategorySpendRows,
   buildYearToMonthPeriod,
-  FINANCING_CATEGORY,
 } from './2026-05-19-logic-category-average-calculation.js';
 import {
-  categoryColor,
   getCategoryDisplayName,
 } from './2026-05-19-utils-category-colors.js';
 import {
@@ -105,7 +104,7 @@ const setsEqual = (a, b) => {
 const emptyProjectionRow = { category: 'None', label: 'No category selected', average: 0, total: 0 };
 
 export const CategoryProjectionCalculator = () => {
-  const { transactions, recurring, themeTokens, fmt } = useAppContext();
+  const { transactions, recurring, reminders, themeTokens, fmt, getCategoryColor } = useAppContext();
   const now = useMemo(() => new Date(), []);
 
   const [historyKind, setHistoryKind] = useState('ytd');
@@ -133,23 +132,61 @@ export const CategoryProjectionCalculator = () => {
     historyPeriod.monthsIncluded,
   ]);
 
+  const [periodKind, setPeriodKind] = useState('months');
+  const [periodCount, setPeriodCount] = useState(12);
+  const [untilYear, setUntilYear] = useState(now.getFullYear() + 1);
+
+  const period = useMemo(() => {
+    if (periodKind === 'untilYear') return { kind: 'untilYear', year: Number(untilYear) || now.getFullYear() + 1 };
+    return { kind: periodKind, count: Number(periodCount) || 0 };
+  }, [periodKind, periodCount, untilYear, now]);
+
+  const months = useMemo(() => periodToMonths(period, now), [period, now]);
+
+  const futureRows = useMemo(() => buildFutureCategorySpendRows({
+    transactions,
+    recurring,
+    reminders,
+    categories: CATEGORIES,
+    from: now,
+    months,
+    motoAmount: MOTO_AMOUNT,
+  }), [transactions, recurring, reminders, months, now]);
+
+  const futureByCategory = useMemo(
+    () => new Map(futureRows.map((row) => [row.category, row])),
+    [futureRows]
+  );
+
   const categoryRows = useMemo(
     () => rows
-      .filter((row) => row.category !== 'Income' && row.category !== FINANCING_CATEGORY)
+      .filter((row) => row.category !== 'Income')
+      .map((row) => {
+        const future = futureByCategory.get(row.category);
+        const futureTotal = Number(future?.total) || 0;
+        const futureAverage = Number(future?.averagePerMonth ?? future?.average) || 0;
+        return {
+          ...row,
+          futureTotal,
+          futureAverage,
+          projectionTotal: (Number(row.total) || 0) + futureTotal,
+          projectionAverage: (Number(row.average) || 0) + futureAverage,
+        };
+      })
       .sort((a, b) => {
-        if (b.average !== a.average) return b.average - a.average;
+        if (b.projectionAverage !== a.projectionAverage) return b.projectionAverage - a.projectionAverage;
         return String(a.label).localeCompare(String(b.label));
       }),
-    [rows]
+    [rows, futureByCategory]
   );
 
   const activeRows = useMemo(
-    () => categoryRows.filter((row) => row.average > 0),
+    () => categoryRows.filter((row) => row.projectionAverage > 0),
     [categoryRows]
   );
 
   const zeroRows = useMemo(
-    () => categoryRows.filter((row) => row.average <= 0),
+    () => categoryRows.filter((row) => row.projectionAverage <= 0),
     [categoryRows]
   );
 
@@ -169,12 +206,24 @@ export const CategoryProjectionCalculator = () => {
     [activeRows, selectedCategories]
   );
 
-  const selectedTotal = useMemo(
+  const selectedActualTotal = useMemo(
     () => selectedRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0),
     [selectedRows]
   );
 
+  const selectedFutureTotal = useMemo(
+    () => selectedRows.reduce((sum, row) => sum + (Number(row.futureTotal) || 0), 0),
+    [selectedRows]
+  );
+
+  const selectedTotal = selectedActualTotal + selectedFutureTotal;
+
   const selectedAverage = useMemo(
+    () => selectedRows.reduce((sum, row) => sum + (Number(row.projectionAverage ?? row.average) || 0), 0),
+    [selectedRows]
+  );
+
+  const selectedHistoricalAverage = useMemo(
     () => selectedRows.reduce((sum, row) => sum + (Number(row.average) || 0), 0),
     [selectedRows]
   );
@@ -185,24 +234,16 @@ export const CategoryProjectionCalculator = () => {
       category: 'Selected categories',
       label: selectedRows.length ? `${selectedRows.length} categories` : emptyProjectionRow.label,
       average: selectedAverage,
+      projectionAverage: selectedAverage,
       total: selectedTotal,
+      projectionTotal: selectedTotal,
+      futureTotal: selectedFutureTotal,
     };
 
   const [adjustmentDirection, setAdjustmentDirection] = useState('decrease');
   const [adjustmentPct, setAdjustmentPct] = useState('10');
   const [fixedAdjustment, setFixedAdjustment] = useState('');
   const [monthlyCap, setMonthlyCap] = useState('');
-
-  const [periodKind, setPeriodKind] = useState('months');
-  const [periodCount, setPeriodCount] = useState(12);
-  const [untilYear, setUntilYear] = useState(now.getFullYear() + 1);
-
-  const period = useMemo(() => {
-    if (periodKind === 'untilYear') return { kind: 'untilYear', year: Number(untilYear) || now.getFullYear() + 1 };
-    return { kind: periodKind, count: Number(periodCount) || 0 };
-  }, [periodKind, periodCount, untilYear, now]);
-
-  const months = useMemo(() => periodToMonths(period, now), [period, now]);
 
   const projectionArgs = useMemo(() => {
     const pct = asNumberOrUndefined(adjustmentPct);
@@ -220,7 +261,7 @@ export const CategoryProjectionCalculator = () => {
   const projection = useMemo(() => {
     if (!selectedRows.length) return projectCategorySpend({ avg: 0, months });
     if (selectedRows.length === 1) {
-      return projectCategorySpend({ avg: selectedRows[0].average, ...projectionArgs });
+      return projectCategorySpend({ avg: selectedRows[0].projectionAverage ?? selectedRows[0].average, ...projectionArgs });
     }
     return projectAcrossCategories({ rows: selectedRows, ...projectionArgs });
   }, [selectedRows, projectionArgs, months]);
@@ -288,7 +329,7 @@ export const CategoryProjectionCalculator = () => {
     marginBottom: 4,
   };
 
-  const activeColor = selectedRows.length === 1 ? categoryColor(currentRow.category) : themeTokens.accent;
+  const activeColor = selectedRows.length === 1 ? getCategoryColor(currentRow.category) : themeTokens.accent;
   const shown = presetResult?.out || projection;
   const shownLabel = presetResult
     ? presetResult.preset.label
@@ -368,7 +409,7 @@ export const CategoryProjectionCalculator = () => {
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
         }}>
-          Actual source: transactions · {historyPeriod.label}
+          Source: history {historyPeriod.label} + future scheduled / planned / recurring spending
         </div>
       </div>
 
@@ -420,8 +461,8 @@ export const CategoryProjectionCalculator = () => {
             // never hide them, so the calculator's list always matches the
             // Average-by-Category card above it.
             const checked = selectedCategories.has(row.category);
-            const color = categoryColor(row.category);
-            const hasData = row.average > 0;
+            const color = getCategoryColor(row.category);
+            const hasData = row.projectionAverage > 0;
             return (
               <label key={row.category} style={{
                 display: 'grid',
@@ -454,7 +495,7 @@ export const CategoryProjectionCalculator = () => {
                   color: hasData ? themeTokens.textDim : themeTokens.textFaint,
                   fontFamily: 'var(--font-mono)', fontSize: 10, whiteSpace: 'nowrap',
                 }}>
-                  {hasData ? `${fmt(row.average)}/mo` : 'no data'}
+                  {hasData ? `${fmt(row.projectionAverage)}/mo${row.futureTotal > 0 ? ' incl future' : ''}` : 'no data'}
                 </span>
               </label>
             );
@@ -483,8 +524,10 @@ export const CategoryProjectionCalculator = () => {
         background: `${themeTokens.surface2}66`,
       }}>
         <div style={labelStyle}>{isAggregate ? currentRow.label : (currentRow.label || getCategoryDisplayName(currentRow.category))} · actuals</div>
-        <ResultRow k="Actual in period" v={fmt(selectedTotal)} />
-        <ResultRow k="Historical avg/mo" v={fmt(selectedAverage)} />
+        <ResultRow k="Actual in period" v={fmt(selectedActualTotal)} />
+        <ResultRow k="Future in horizon" v={fmt(selectedFutureTotal)} />
+        <ResultRow k="Historical avg/mo" v={fmt(selectedHistoricalAverage)} />
+        <ResultRow k="Projection avg/mo" v={fmt(selectedAverage)} />
         <ResultRow k="Months averaged" v={historyPeriod.monthsIncluded} />
       </div>
 

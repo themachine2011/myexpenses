@@ -14,6 +14,12 @@ const isSameMonth = (a, b) =>
 const monthDistanceInclusive = (from, to) =>
   Math.max(1, (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + 1);
 
+const dayDistanceInclusive = (from, to) => {
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.max(1, Math.floor((end - start) / 86400000) + 1);
+};
+
 const dateInRange = (date, from, to) => date >= from && date <= to;
 
 export const buildYearToMonthPeriod = ({ year, month }, now = new Date()) => {
@@ -139,6 +145,7 @@ export const buildCategoryAverageRows = ({
   const from = period?.from || new Date(new Date().getFullYear(), 0, 1);
   const to = period?.to || new Date();
   const monthsIncluded = Math.max(1, Number(period?.monthsIncluded) || monthDistanceInclusive(from, to));
+  const daysIncluded = Math.max(1, Number(period?.daysIncluded) || dayDistanceInclusive(from, to));
   const allCategories = collectSpendingCategories(categories, transactions, recurring);
   const totals = Object.fromEntries(allCategories.map((category) => [category, 0]));
 
@@ -170,12 +177,131 @@ export const buildCategoryAverageRows = ({
 
   return allCategories.map((category) => {
     const total = totals[category] || 0;
+    const averagePerMonth = total / monthsIncluded;
+    const averagePerDay = total / daysIncluded;
     return {
       category,
       label: getCategoryDisplayName(category),
       total,
-      average: total / monthsIncluded,
+      average: averagePerMonth,
+      averagePerMonth,
+      averagePerDay,
       monthsIncluded,
+      daysIncluded,
+      periodLabel: period?.label,
+      isTriumphFinancing: category === FINANCING_CATEGORY,
+    };
+  });
+};
+
+const earliestTransactionDate = (transactions = [], fallback = new Date()) => {
+  let earliest = null;
+  for (const tx of transactions || []) {
+    const date = new Date(tx?.date);
+    if (Number.isNaN(date.getTime())) continue;
+    if (!earliest || date < earliest) earliest = date;
+  }
+  return earliest || fallback;
+};
+
+export const buildFullHistoryCategoryAverageRows = ({
+  transactions = [],
+  recurring = [],
+  categories = [],
+  to = new Date(),
+  motoAmount = 2191,
+}) => {
+  const end = new Date(to);
+  const first = earliestTransactionDate(transactions, end);
+  const from = first <= end
+    ? new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0)
+    : new Date(end.getFullYear(), end.getMonth(), end.getDate(), 0, 0, 0, 0);
+  return buildCategoryAverageRows({
+    transactions,
+    recurring,
+    categories,
+    period: {
+      kind: 'locked-history',
+      from,
+      to: end,
+      monthsIncluded: monthDistanceInclusive(from, end),
+      daysIncluded: dayDistanceInclusive(from, end),
+      label: `${from.toLocaleString('en-US', { month: 'short', year: 'numeric' })} - ${end.toLocaleString('en-US', { month: 'short', year: 'numeric' })}`,
+    },
+    motoAmount,
+  });
+};
+
+export const buildFutureCategorySpendRows = ({
+  transactions = [],
+  recurring = [],
+  reminders = [],
+  categories = [],
+  from = new Date(),
+  months = 12,
+  to,
+  motoAmount = 2191,
+}) => {
+  const start = new Date(from);
+  const monthCount = Math.max(1, Number(months) || 1);
+  const end = to ? new Date(to) : new Date(start);
+  if (!to) end.setMonth(end.getMonth() + monthCount);
+  if (!to) end.setMilliseconds(end.getMilliseconds() - 1);
+  const daysIncluded = dayDistanceInclusive(start, end);
+  const allCategories = collectSpendingCategories(categories, transactions, recurring);
+  const totals = Object.fromEntries(allCategories.map((category) => [category, 0]));
+
+  for (const tx of transactions || []) {
+    if (tx?.type !== 'expense') continue;
+    const date = new Date(tx.date);
+    if (!(date > start && date <= end)) continue;
+    const category = normalizeCategoryName(tx.category);
+    if (!isSpendingCategory(category)) continue;
+    totals[category] = (totals[category] || 0) + expenseAmount(tx, motoAmount);
+  }
+
+  const firedRecurring = recurringMonthSet(transactions);
+  for (const template of recurring || []) {
+    if (template?.type === 'income') continue;
+    const amount = Number(template?.amount) || 0;
+    if (amount <= 0) continue;
+    const category = normalizeCategoryName(template.category);
+    if (!isSpendingCategory(category)) continue;
+    const day = Math.max(1, Math.min(28, Number(template.dayOfMonth) || 1));
+    for (const item of monthsInRange(start, end)) {
+      const key = `${template.id}|${item.key}`;
+      if (firedRecurring.has(key)) continue;
+      const occurrenceDate = new Date(item.year, item.month, day, 12, 0, 0, 0);
+      if (!(occurrenceDate > start && occurrenceDate <= end)) continue;
+      totals[category] = (totals[category] || 0) + amount;
+    }
+  }
+
+  for (const reminder of reminders || []) {
+    if (reminder?.paid) continue;
+    const amount = Number(reminder?.amount) || 0;
+    if (amount <= 0) continue;
+    const date = new Date(reminder.date);
+    if (!(date > start && date <= end)) continue;
+    if (!reminder.category) continue;
+    const category = normalizeCategoryName(reminder.category);
+    if (!isSpendingCategory(category)) continue;
+    totals[category] = (totals[category] || 0) + amount;
+  }
+
+  return allCategories.map((category) => {
+    const total = totals[category] || 0;
+    const averagePerMonth = total / monthCount;
+    return {
+      category,
+      label: getCategoryDisplayName(category),
+      total,
+      average: averagePerMonth,
+      averagePerMonth,
+      averagePerDay: total / daysIncluded,
+      monthsIncluded: monthCount,
+      daysIncluded,
+      periodLabel: `${start.toLocaleString('en-US', { month: 'short', year: 'numeric' })} - ${end.toLocaleString('en-US', { month: 'short', year: 'numeric' })}`,
       isTriumphFinancing: category === FINANCING_CATEGORY,
     };
   });

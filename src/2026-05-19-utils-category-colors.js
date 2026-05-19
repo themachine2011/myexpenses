@@ -4,7 +4,7 @@ export const TRIUMPH_FINANCING_RED = '#B91C1C';
 export const USELESS_CATEGORY = 'Useless';
 export const USELESS_CATEGORY_LABEL = 'Useless 🗑️';
 
-const CATEGORY_COLOR_MAP = {
+export const DEFAULT_CATEGORY_COLOR_MAP = Object.freeze({
   Clothing: '#C084FC',
   'Convenience Store': '#F59E0B',
   Debts: '#B084F5',
@@ -23,9 +23,9 @@ const CATEGORY_COLOR_MAP = {
   Zaffari: '#FACC15',
   Entertainment: '#A3E635',
   Purchase: '#14B8A6',
-};
+});
 
-const FALLBACK_PALETTE = [
+export const CATEGORY_FALLBACK_PALETTE = Object.freeze([
   '#06B6D4',
   '#A78BFA',
   '#FBBF24',
@@ -36,7 +36,7 @@ const FALLBACK_PALETTE = [
   '#93C5FD',
   '#F97316',
   '#64748B',
-];
+]);
 
 export const normalizeCategoryName = (category) => {
   const name = String(category || '').trim();
@@ -64,10 +64,29 @@ const hashCategory = (category) => {
   return Math.abs(hash);
 };
 
-export const categoryColor = (category) => {
+export const isValidHexColor = (value) =>
+  /^#[0-9a-f]{6}$/i.test(String(value || '').trim());
+
+export const normalizeCategoryColorOverrides = (overrides = {}) => {
+  const next = {};
+  for (const [category, color] of Object.entries(overrides || {})) {
+    const normalizedCategory = normalizeCategoryName(category);
+    const normalizedColor = String(color || '').trim();
+    if (isValidHexColor(normalizedColor)) next[normalizedCategory] = normalizedColor.toUpperCase();
+  }
+  return next;
+};
+
+export const getDefaultCategoryColor = (category) => {
   const name = normalizeCategoryName(category);
-  if (CATEGORY_COLOR_MAP[name]) return CATEGORY_COLOR_MAP[name];
-  return FALLBACK_PALETTE[hashCategory(name) % FALLBACK_PALETTE.length];
+  if (DEFAULT_CATEGORY_COLOR_MAP[name]) return DEFAULT_CATEGORY_COLOR_MAP[name];
+  return CATEGORY_FALLBACK_PALETTE[hashCategory(name) % CATEGORY_FALLBACK_PALETTE.length];
+};
+
+export const categoryColor = (category, overrides = {}) => {
+  const name = normalizeCategoryName(category);
+  const normalizedOverrides = normalizeCategoryColorOverrides(overrides);
+  return normalizedOverrides[name] || getDefaultCategoryColor(name);
 };
 
 export const valueColor = (value, category, fallback) => {

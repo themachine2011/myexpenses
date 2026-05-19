@@ -11,16 +11,17 @@ import { WheelPeriodSelector } from './2026-05-19-component-wheel-period-selecto
 import {
   buildCategoryAverageRows,
   buildComparisonPeriod,
+  buildFullHistoryCategoryAverageRows,
   buildYearToMonthPeriod,
   FINANCING_CATEGORY,
 } from './2026-05-19-logic-category-average-calculation.js';
 import {
-  categoryColor,
   getCategoryDisplayName,
   HIGH_SPENDING_RED,
   TRIUMPH_FINANCING_RED,
   valueColor,
 } from './2026-05-19-utils-category-colors.js';
+import { InlineCardTitle } from './card-explanations.jsx';
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, month) => ({
   value: month,
@@ -197,11 +198,24 @@ const PeriodPairSelector = ({ mode, periodA, periodB, onChangeA, onChangeB }) =>
 };
 
 export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
-  const { transactions, recurring, themeTokens, fmt } = useAppContext();
+  const {
+    transactions,
+    recurring,
+    themeTokens,
+    fmt,
+    categoryColorOverrides,
+    getCategoryColor,
+    getDefaultCategoryColor,
+    setCategoryColor,
+    resetCategoryColor,
+  } = useAppContext();
   const rotation = useActiveRotation();
   const now = new Date();
   const [visibleCategories, setVisibleCategories] = useState(() =>
     new Set(CATEGORIES.filter((category) => category !== FINANCING_CATEGORY && category !== 'Income'))
+  );
+  const [colorCategory, setColorCategory] = useState(() =>
+    CATEGORIES.find((category) => category !== FINANCING_CATEGORY && category !== 'Income') || CATEGORIES[0]
   );
   const [compareMode, setCompareMode] = useState('month');
   const [periodA, setPeriodA] = useState(() => ({
@@ -243,6 +257,19 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
     motoAmount: MOTO_AMOUNT,
   }), [transactions, recurring, ytdPeriod.from.getTime(), ytdPeriod.to.getTime(), ytdPeriod.monthsIncluded]);
 
+  const lockedRows = useMemo(() => buildFullHistoryCategoryAverageRows({
+    transactions,
+    recurring,
+    categories: CATEGORIES,
+    to: ytdPeriod.to,
+    motoAmount: MOTO_AMOUNT,
+  }), [transactions, recurring, ytdPeriod.to.getTime()]);
+
+  const lockedByCategory = useMemo(
+    () => new Map(lockedRows.map((row) => [row.category, row])),
+    [lockedRows]
+  );
+
   useEffect(() => {
     setVisibleCategories((current) => {
       const next = new Set(current);
@@ -255,6 +282,12 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   }, [allRows]);
 
   const categoryOptions = allRows;
+  useEffect(() => {
+    if (categoryOptions.some((row) => row.category === colorCategory)) return;
+    const next = categoryOptions.find((row) => !row.isTriumphFinancing)?.category || categoryOptions[0]?.category;
+    if (next) setColorCategory(next);
+  }, [categoryOptions, colorCategory]);
+
   const visibleRows = allRows
     .filter((row) => visibleCategories.has(row.category))
     .filter((row) => row.average > 0)
@@ -264,7 +297,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
     name: row.label,
     category: row.category,
     value: row.average,
-    color: categoryColor(row.category),
+    color: getCategoryColor(row.category),
   }));
 
   const comparisonA = useMemo(() => buildComparisonPeriod(compareMode, periodA, now), [compareMode, periodA]);
@@ -291,7 +324,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         category: row.category,
         name: getCategoryDisplayName(row.category),
         value: row.average,
-        color: categoryColor(row.category),
+        color: getCategoryColor(row.category),
       }))
       .filter((row) => row.value > 0)
       .sort((a, b) => b.value - a.value)
@@ -300,9 +333,21 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
     const b = buildPaneRows(rowsB);
     const max = Math.max(1, ...a.map((row) => row.value), ...b.map((row) => row.value));
     return { a, b, max };
-  }, [rowsA, rowsB, visibleCategories]);
+  }, [rowsA, rowsB, visibleCategories, getCategoryColor]);
 
   const totalAverage = visibleRows.reduce((sum, row) => sum + row.average, 0);
+  const lockedDailyAverage = visibleRows.reduce(
+    (sum, row) => sum + (Number(lockedByCategory.get(row.category)?.averagePerDay) || 0),
+    0
+  );
+  const lockedMonthlyAverage = visibleRows.reduce(
+    (sum, row) => sum + (Number(lockedByCategory.get(row.category)?.averagePerMonth) || 0),
+    0
+  );
+  const lockedPeriodLabel = lockedRows[0]?.periodLabel || 'Full history';
+  const selectedColor = getCategoryColor(colorCategory);
+  const defaultColor = getDefaultCategoryColor(colorCategory);
+  const hasCustomColor = selectedColor !== defaultColor || !!categoryColorOverrides?.[colorCategory];
 
   const chartFrame = (chart, children) => (
     <div
@@ -447,13 +492,13 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       overflow: 'hidden',
     }}>
       <div>
-        <div style={{
+        <InlineCardTitle style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 10,
           letterSpacing: '0.28em',
           textTransform: 'uppercase',
           color: themeTokens.textDim,
-        }}>Average by Category</div>
+        }}>Average by Category</InlineCardTitle>
         <div style={{
           marginTop: 4,
           color: themeTokens.text,
@@ -472,11 +517,138 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         }}>{ytdPeriod.label} avg over {ytdPeriod.monthsIncluded} mo</div>
       </div>
 
+      <div style={{
+        border: `1px solid ${themeTokens.hairline}`,
+        borderRadius: 12,
+        padding: 10,
+        background: `${themeTokens.surface2}66`,
+        display: 'grid',
+        gap: 8,
+        minWidth: 0,
+      }}>
+        <div style={{
+          color: themeTokens.textDim,
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+        }}>
+          Category colors
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
+          <select
+            value={colorCategory}
+            onChange={(event) => setColorCategory(event.target.value)}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              background: 'transparent',
+              border: `1px solid ${themeTokens.hairline2}`,
+              borderRadius: 8,
+              color: themeTokens.text,
+              cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+              fontSize: 12,
+              outline: 'none',
+              padding: '7px 8px',
+            }}
+          >
+            {categoryOptions.map((row) => (
+              <option key={row.category} value={row.category}>
+                {row.label}
+              </option>
+            ))}
+          </select>
+          <input
+            type="color"
+            value={selectedColor}
+            onChange={(event) => setCategoryColor(colorCategory, event.target.value)}
+            aria-label={`Color for ${getCategoryDisplayName(colorCategory)}`}
+            style={{
+              width: 42,
+              height: 32,
+              padding: 2,
+              border: `1px solid ${themeTokens.hairline2}`,
+              borderRadius: 8,
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          />
+          <button
+            type="button"
+            disabled={!hasCustomColor}
+            onClick={() => resetCategoryColor(colorCategory)}
+            style={{
+              border: `1px solid ${themeTokens.hairline2}`,
+              background: 'transparent',
+              borderRadius: 8,
+              color: hasCustomColor ? themeTokens.textDim : themeTokens.textFaint,
+              cursor: hasCustomColor ? 'pointer' : 'not-allowed',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              letterSpacing: '0.1em',
+              opacity: hasCustomColor ? 1 : 0.5,
+              padding: '8px 9px',
+              textTransform: 'uppercase',
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <div style={{
+        border: `1px solid ${themeTokens.hairline}`,
+        borderRadius: 12,
+        padding: 10,
+        background: `${themeTokens.surface2}44`,
+        display: 'grid',
+        gap: 8,
+      }}>
+        <div style={{
+          color: themeTokens.textDim,
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+        }}>
+          Locked reference
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Avg / day
+            </div>
+            <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
+              {fmt(lockedDailyAverage)}
+            </div>
+          </div>
+          <div>
+            <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Avg / month
+            </div>
+            <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
+              {fmt(lockedMonthlyAverage)}
+            </div>
+          </div>
+        </div>
+        <div style={{
+          color: themeTokens.textFaint,
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          lineHeight: 1.45,
+        }}>
+          {lockedPeriodLabel} · ignores comparison filters
+        </div>
+      </div>
+
       {chartFrame('pie', (
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <InlineCardTitle explanationKey="Distribution" style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Distribution
-          </div>
+          </InlineCardTitle>
           <div style={{ height: 188 }}>
             {pieData.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -550,9 +722,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
           transition: 'transform 180ms cubic-bezier(0.22,1,0.36,1)',
           willChange: 'transform',
         }}>
-          <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <InlineCardTitle style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Period comparison
-          </div>
+          </InlineCardTitle>
           <div style={{
             minHeight: 248,
             display: 'grid',
@@ -593,8 +765,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         <div style={{ display: 'grid', gap: 8, marginTop: 10, maxHeight: 220, overflow: 'auto' }}>
           {categoryOptions.map((row) => {
             const checked = visibleCategories.has(row.category);
-            const color = categoryColor(row.category);
+            const color = getCategoryColor(row.category);
             const amountColor = valueColor(row.average, row.category, themeTokens.textDim);
+            const locked = lockedByCategory.get(row.category);
             return (
               <label key={row.category} style={{
                 display: 'grid',
@@ -620,8 +793,14 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                   fontFamily: 'var(--font-mono)',
                   fontSize: 11,
                   whiteSpace: 'nowrap',
+                  display: 'grid',
+                  gap: 2,
+                  justifyItems: 'end',
                 }}>
-                  {fmt(row.average)}
+                  <span>{fmt(row.average)}</span>
+                  <span style={{ color: themeTokens.textFaint, fontSize: 9 }}>
+                    {fmt(locked?.averagePerDay || 0)}/d · {fmt(locked?.averagePerMonth || 0)}/mo
+                  </span>
                 </span>
               </label>
             );
