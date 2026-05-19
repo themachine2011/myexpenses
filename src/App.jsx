@@ -25,7 +25,6 @@ const TWEAK_DEFAULTS = {
   density: 'comfortable',
   currency: 'BRL',
   language: 'en',
-  showLoader: true,
   defaultSplitMode: 'off',
   backupIntervalDays: getBackupSettings().intervalDays,
 };
@@ -73,17 +72,8 @@ const App = () => {
   useEffect(() => { setBackupSettings({ intervalDays: tweaks.backupIntervalDays }); }, [tweaks.backupIntervalDays]);
   useAutoBackup(state);
 
-  // Skip the splash loader when the tab is opened via a deep-link (e.g. the
-  // "Recent on this card" button opens `?view=cardPurchases&card=...`).
-  // Otherwise honor the user's `showLoader` tweak.
-  const deepLinked = (() => {
-    try {
-      const p = new URLSearchParams(window.location.search);
-      return !!(p.get('view') || p.get('card'));
-    } catch (_) { return false; }
-  })();
-  const [loaderShown, setLoaderShown] = useState(deepLinked ? false : tweaks.showLoader);
-  const [loaderDone, setLoaderDone]   = useState(deepLinked ? true  : !tweaks.showLoader);
+  const [loaderShown, setLoaderShown] = useState(false);
+  const [loaderDone, setLoaderDone]   = useState(true);
 
   const tk = state.themeTokens;
   const fonts = state.fonts;
