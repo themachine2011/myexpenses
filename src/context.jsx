@@ -3,6 +3,7 @@ import { FONT_PAIRS, buildTokens, fmtCurrency } from './tokens.jsx';
 import { useStoredState, safeRead, safeWrite } from './2026-05-16-utils-storage-write-guard.jsx';
 import { validateTransaction, validatePatch } from './2026-05-16-utils-transaction-form-validation.js';
 import { findDuplicate, partitionDuplicates, buildDuplicateIndex } from './2026-05-17-utils-duplicate-detection.js';
+import { normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
 
 export { validateTransaction, validatePatch };
 export { findDuplicate, partitionDuplicates, buildDuplicateIndex };
@@ -29,15 +30,35 @@ export const CATEGORIES = [
   'Health',
   'Insurance',
   'Online Subscriptions',
-  'Others',
   'Restaurants',
   'Trips',
   'Uber',
+  USELESS_CATEGORY,
   'Zaffari',
 ];
 
 export const DEFAULT_CATEGORY = 'Debts';
 export const DEFAULT_SPLIT_CATEGORY = 'Restaurants';
+
+const normalizeStoredCategory = (category, fallback = USELESS_CATEGORY) =>
+  normalizeCategoryName(category || fallback);
+
+const normalizeRecordCategory = (record, fallback = USELESS_CATEGORY) => {
+  const nextCategory = normalizeStoredCategory(record?.category, fallback);
+  return nextCategory === record?.category ? record : { ...record, category: nextCategory };
+};
+
+const normalizeCategoryMapKeys = (map = {}) => {
+  let changed = false;
+  const next = {};
+  for (const [key, value] of Object.entries(map || {})) {
+    const normalizedKey = normalizeStoredCategory(key);
+    if (normalizedKey !== key) changed = true;
+    next[normalizedKey] = Math.max(Number(next[normalizedKey]) || 0, Number(value) || 0);
+  }
+  if (Object.keys(next).length !== Object.keys(map || {}).length) changed = true;
+  return changed ? next : map;
+};
 
 export const generateMotoInstallments = () => {
   const out = [];
@@ -91,7 +112,7 @@ export const transactionsToCSV = (txs) => {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const head = TX_CSV_FIELDS.join(',');
-  const body = txs.map((t) => TX_CSV_FIELDS.map((f) => escape(t[f])).join(',')).join('\n');
+  const body = txs.map((t) => TX_CSV_FIELDS.map((f) => escape(f === 'category' ? normalizeCategoryName(t[f]) : t[f])).join(',')).join('\n');
   return head + '\n' + body;
 };
 
@@ -133,7 +154,7 @@ export const parseTransactionsCSV = (text) => {
       type: obj.type === 'income' ? 'income' : 'expense',
       amount: amt,
       description: obj.description,
-      category: obj.category || 'Others',
+      category: normalizeCategoryName(obj.category || USELESS_CATEGORY),
       paymentMethod: obj.paymentMethod || 'Bank Transfer',
     };
   }).filter(Boolean);
@@ -264,7 +285,7 @@ export const suggestCategory = (description, rules) => {
   const desc = description.toLowerCase();
   for (const rule of rules) {
     if (!rule?.match) continue;
-    if (desc.includes(String(rule.match).toLowerCase())) return rule.category || null;
+    if (desc.includes(String(rule.match).toLowerCase())) return normalizeStoredCategory(rule.category);
   }
   return null;
 };
@@ -274,12 +295,13 @@ export const suggestCategory = (description, rules) => {
 // supplied calendar month (defaults to current).
 // ----------------------------------------------------------------------------
 export const budgetUsage = (transactions, category, budgets, now = new Date()) => {
-  const limit = Number(budgets?.[category]) || 0;
+  const normalizedCategory = normalizeStoredCategory(category);
+  const limit = Number(budgets?.[normalizedCategory]) || 0;
   const { from, to } = currentMonthRange(now);
   let spent = 0;
   for (const t of transactions) {
     if (t.type !== 'expense') continue;
-    if (t.category !== category) continue;
+    if (normalizeStoredCategory(t.category) !== normalizedCategory) continue;
     const d = new Date(t.date);
     if (d < from || d > to) continue;
     spent += t.amount;
@@ -471,6 +493,38 @@ export const useAppState = () => {
   const [defaultSplitMode, setDefaultSplitMode] = useState(false);
   const [focusedCardMethod, setFocusedCardMethod] = useState(null);
 
+  useEffect(() => {
+    setTransactions((prev) => {
+      let changed = false;
+      const next = (prev || []).map((tx) => {
+        const normalized = normalizeRecordCategory(tx);
+        if (normalized !== tx) changed = true;
+        return normalized;
+      });
+      return changed ? next : prev;
+    });
+    setRules((prev) => {
+      let changed = false;
+      const next = (prev || []).map((rule) => {
+        const normalized = normalizeRecordCategory(rule);
+        if (normalized !== rule) changed = true;
+        return normalized;
+      });
+      return changed ? next : prev;
+    });
+    setRecurring((prev) => {
+      let changed = false;
+      const next = (prev || []).map((template) => {
+        const normalized = normalizeRecordCategory(template);
+        if (normalized !== template) changed = true;
+        return normalized;
+      });
+      return changed ? next : prev;
+    });
+    setBudgets((prev) => normalizeCategoryMapKeys(prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const themeTokens = useMemo(() => buildTokens(theme, accent), [theme, accent]);
   const fonts       = FONT_PAIRS[fontPair] || FONT_PAIRS.schibsted;
 
@@ -516,10 +570,11 @@ export const useAppState = () => {
     return { ok: true };
   };
   const addInstallmentPurchase = ({ description, category, amount, paymentMethod, firstDate, installments, tags }) => {
+    const normalizedCategory = normalizeStoredCategory(category, 'Purchase');
     const v = validateTransaction({
       description, amount, date: firstDate,
-      category: category || 'Purchase',
-      type: category === 'Income' ? 'income' : 'expense',
+      category: normalizedCategory,
+      type: normalizedCategory === 'Income' ? 'income' : 'expense',
     });
     if (!v.ok) return { ok: false, errors: v.errors };
     const n = Math.max(1, Math.min(12, Number(installments) || 1));
@@ -529,7 +584,7 @@ export const useAppState = () => {
     const start = new Date(firstDate);
     const out = [];
     const groupId = generateId();
-    const txType = category === 'Income' ? 'income' : 'expense';
+    const txType = normalizedCategory === 'Income' ? 'income' : 'expense';
     const tagList = Array.isArray(tags) ? tags.filter(Boolean) : [];
     for (let i = 0; i < n; i++) {
       const d = new Date(start.getFullYear(), start.getMonth() + i, start.getDate());
@@ -539,7 +594,7 @@ export const useAppState = () => {
         type: txType,
         amount: i === n - 1 ? last : base,
         description: n > 1 ? `${description} · ${i + 1}/${n}` : description,
-        category: category || 'Purchase',
+        category: normalizedCategory,
         paymentMethod,
         date: d.toISOString(),
         tags: tagList,
@@ -553,21 +608,23 @@ export const useAppState = () => {
   const addSplitPurchase = ({ description, paymentMethod, date, legs }) => {
     if (!Array.isArray(legs) || !legs.length) return { ok: false, errors: { legs: 'At least one leg is required.' } };
     for (const leg of legs) {
+      const normalizedCategory = normalizeStoredCategory(leg.category);
       const v = validateTransaction({
         description, amount: leg.amount, date,
-        category: leg.category || 'Others',
+        category: normalizedCategory,
         type: leg.type === 'income' ? 'income' : 'expense',
       });
       if (!v.ok) return { ok: false, errors: v.errors };
     }
     const groupId = generateId();
     const out = legs.map((leg, i) => ({
+      ...leg,
       id: `${groupId}-split-${i}`,
       groupId,
       type: leg.type === 'income' ? 'income' : 'expense',
       amount: Number(leg.amount) || 0,
-      description: legs.length > 1 ? `${description} · ${leg.category}` : description,
-      category: leg.category || 'Others',
+      description: legs.length > 1 ? `${description} · ${normalizeStoredCategory(leg.category)}` : description,
+      category: normalizeStoredCategory(leg.category),
       paymentMethod: paymentMethod || 'Bank Transfer',
       date: new Date(date).toISOString(),
       tags: leg.tags || [],
@@ -588,7 +645,7 @@ export const useAppState = () => {
       const next = { ...t };
       if (patch.description !== undefined) next.description = patch.description;
       if (patch.amount      !== undefined) next.amount      = Number(patch.amount) || 0;
-      if (patch.category    !== undefined) next.category    = patch.category;
+      if (patch.category    !== undefined) next.category    = normalizeStoredCategory(patch.category);
       if (patch.paymentMethod !== undefined) next.paymentMethod = patch.paymentMethod;
       if (patch.date        !== undefined) next.date        = new Date(patch.date).toISOString();
       if (patch.tags        !== undefined) next.tags        = Array.isArray(patch.tags) ? patch.tags : [];
@@ -624,7 +681,7 @@ export const useAppState = () => {
     let invalid = 0;
     for (const r of rows) {
       const v = validateTransaction(r);
-      if (v.ok) valid.push(r);
+      if (v.ok) valid.push(normalizeRecordCategory(r));
       else invalid++;
     }
     let addedCount = 0;
@@ -643,17 +700,17 @@ export const useAppState = () => {
 
   // ----- CRUD helpers for new feature state --------------------------------
   // Rules (auto-categorization)
-  const addRule    = (rule) => setRules((p) => [...p, { id: generateId(), ...rule }]);
+  const addRule    = (rule) => setRules((p) => [...p, { id: generateId(), ...rule, category: normalizeStoredCategory(rule?.category) }]);
   const deleteRule = (id)   => setRules((p) => p.filter((r) => r.id !== id));
 
   // Recurring transaction templates
-  const addRecurring    = (tpl)       => setRecurring((p) => [...p, { id: generateId(), lastFiredKey: '', ...tpl }]);
-  const updateRecurring = (id, patch) => setRecurring((p) => p.map((r) => r.id === id ? { ...r, ...patch } : r));
+  const addRecurring    = (tpl)       => setRecurring((p) => [...p, { id: generateId(), lastFiredKey: '', ...tpl, category: normalizeStoredCategory(tpl?.category) }]);
+  const updateRecurring = (id, patch) => setRecurring((p) => p.map((r) => r.id === id ? { ...r, ...patch, ...(patch?.category !== undefined ? { category: normalizeStoredCategory(patch.category) } : {}) } : r));
   const deleteRecurring = (id)        => setRecurring((p) => p.filter((r) => r.id !== id));
 
   // Budgets
-  const setBudget    = (cat, limit) => setBudgets((p) => ({ ...p, [cat]: Number(limit) || 0 }));
-  const removeBudget = (cat)        => setBudgets((p) => { const next = { ...p }; delete next[cat]; return next; });
+  const setBudget    = (cat, limit) => setBudgets((p) => ({ ...p, [normalizeStoredCategory(cat)]: Number(limit) || 0 }));
+  const removeBudget = (cat)        => setBudgets((p) => { const next = { ...p }; delete next[normalizeStoredCategory(cat)]; return next; });
 
   // Goals (multi-savings)
   const addGoal    = (g)          => setGoals((p) => [...p, { id: generateId(), allocated: 0, ...g }]);
@@ -688,7 +745,7 @@ export const useAppState = () => {
       type: r.type === 'income' ? 'income' : 'expense',
       amount: Number(r.amount) || 0,
       description: r.description,
-      category: r.category || 'Others',
+      category: normalizeStoredCategory(r.category),
       paymentMethod: r.paymentMethod || 'Bank Transfer',
       date: new Date(now.getFullYear(), now.getMonth(), Math.min(today, Math.max(1, Number(r.dayOfMonth) || 1))).toISOString(),
       tags: ['recurring'],

@@ -6,6 +6,9 @@ import { fmtCurrency } from './tokens.jsx';
 import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
+import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
+
+const categoryLabel = (category) => getCategoryDisplayName(category);
 
 const confirmDelete = (msg) => {
   if (typeof window === 'undefined') return true;
@@ -747,15 +750,16 @@ const MonthlyInsights = ({ transactions, savingsTotal, goalAmount, themeTokens, 
       if (t.type === 'income') income += t.amount;
       else if (t.type === 'expense') {
         expense += t.amount;
-        byCategory[t.category] = (byCategory[t.category] || 0) + t.amount;
+        const category = normalizeCategoryName(t.category);
+        byCategory[category] = (byCategory[category] || 0) + t.amount;
       }
     }
     const balance = income - expense - savings - locked;
     const sortedCats = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-    const top = sortedCats[0];
+    const top = sortedCats[0] ? [categoryLabel(sortedCats[0][0]), sortedCats[0][1]] : null;
     const totalExpense = Math.max(1, expense);
     const distribution = sortedCats.slice(0, 5).map(([k, v]) => ({
-      name: k, value: v, pct: (v / totalExpense) * 100,
+      name: categoryLabel(k), value: v, pct: (v / totalExpense) * 100,
     }));
     return { income, expense, savings, locked, balance, top, distribution };
   }, [transactions, from.getTime(), to.getTime()]);
@@ -1100,7 +1104,7 @@ const BudgetsPanel = () => {
                 border: `1px solid ${themeTokens.hairline2}`, borderRadius: 10,
                 padding: '10px 14px', color: themeTokens.text, fontFamily: 'var(--font-body)', fontSize: 14, outline: 'none', cursor: 'pointer',
               }}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
             </select>
           </div>
           <div>
@@ -1489,7 +1493,7 @@ export const Dashboard = () => {
               <div>
                 <div style={{ color: themeTokens.text, fontSize: 14 }}>{tx.description}</div>
                 <div style={{ color: themeTokens.textDim, fontSize: 11, fontFamily: 'var(--font-mono)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span>{tx.category}</span>
+                  <span>{categoryLabel(tx.category)}</span>
                   {PAYMENT_CHIP[tx.paymentMethod]
                     ? <PaymentChip method={tx.paymentMethod} />
                     : <span>· {tx.paymentMethod}</span>}
@@ -1548,7 +1552,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
         <td>${escapeHtml(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }))}</td>
         <td>
           <div class="desc">${escapeHtml(cardDisplayDescription(tx))}</div>
-          <div class="meta">${escapeHtml(tx.category)} · ${escapeHtml(tx.paymentMethod)}</div>
+          <div class="meta">${escapeHtml(categoryLabel(tx.category))} · ${escapeHtml(tx.paymentMethod)}</div>
         </td>
         <td>${escapeHtml(installment)}</td>
         <td>${future ? 'Future scheduled charge' : 'Current month purchase'}</td>
@@ -1559,7 +1563,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
     id: tx.id,
     date: tx.date,
     description: cardDisplayDescription(tx),
-    category: tx.category,
+    category: categoryLabel(tx.category),
     paymentMethod: tx.paymentMethod,
     amount: Number(tx.amount) || 0,
     amountLabel: fmt(tx.amount),
@@ -1832,7 +1836,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
             const date = new Date(row.date);
             return '<tr class="' + cls + '">' +
               '<td>' + escapeText(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })) + '</td>' +
-              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(row.category) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
+              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(categoryLabel(row.category)) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
               '<td>' + escapeText(row.installment) + '</td>' +
               '<td>' + label + '</td>' +
               '<td class="amount">' + escapeText(row.amountLabel) + '</td>' +
@@ -2064,7 +2068,7 @@ export const CardPurchasesPage = () => {
                 <div>
                   <div style={{ color, fontSize: 14 }}>{tx.description}</div>
                   <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4 }}>
-                    {tx.category}{pending ? ' · pending' : ''}
+                    {categoryLabel(tx.category)}{pending ? ' · pending' : ''}
                   </div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color, minWidth: 100, textAlign: 'right' }}>
@@ -2300,7 +2304,7 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
                     {graphPurchaseGroupLabel(tx.graphGroup)}
                   </td>
                   <td style={{ padding: '12px 14px', borderBottom: `1px solid ${themeTokens.hairline}`, color: themeTokens.textDim, fontSize: 12 }}>
-                    {tx.category}
+                    {categoryLabel(tx.category)}
                   </td>
                   <td style={{ padding: '12px 14px', borderBottom: `1px solid ${themeTokens.hairline}`, color: themeTokens.textDim, fontSize: 12 }}>
                     {tx.paymentMethod}
@@ -3001,7 +3005,7 @@ export const HistorySidebar = () => {
                   letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4,
                   display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
                 }}>
-                  <span>{tx.category}</span>
+                  <span>{categoryLabel(tx.category)}</span>
                   {PAYMENT_CHIP[tx.paymentMethod] && <PaymentChip method={tx.paymentMethod} />}
                 </div>
               </div>
@@ -3102,7 +3106,7 @@ export const GlobalSearch = () => {
                     fontFamily: 'var(--font-mono)', fontSize: 10,
                     letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 2,
                   }}>
-                    {tx.category} · {tx.paymentMethod} · {d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
+                    {categoryLabel(tx.category)} · {tx.paymentMethod} · {d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
                   </div>
                 </div>
                 <div style={{
@@ -3293,7 +3297,7 @@ export const LedgerPage = () => {
                 <div>
                   <div style={{ color: future ? '#E0B33B' : themeTokens.text, fontSize: 14 }}>{tx.description}</div>
                   <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span>{tx.category}</span>
+                    <span>{categoryLabel(tx.category)}</span>
                     {PAYMENT_CHIP[tx.paymentMethod]
                       ? <PaymentChip method={tx.paymentMethod} />
                       : <span>· {tx.paymentMethod}</span>}
@@ -3462,7 +3466,7 @@ export const AllTransactionsPage = () => {
                 <div>
                   <div style={{ color: future ? '#E0B33B' : themeTokens.text, fontSize: 14 }}>{tx.description}</div>
                   <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span>{tx.category}</span>
+                    <span>{categoryLabel(tx.category)}</span>
                     {PAYMENT_CHIP[tx.paymentMethod]
                       ? <PaymentChip method={tx.paymentMethod} />
                       : <span>· {tx.paymentMethod}</span>}
@@ -3570,7 +3574,7 @@ export const TransactionsPage = () => {
     if (Array.isArray(parsed.rules)) {
       // Replace rules wholesale: delete current then add.
       (ctx.rules || []).slice().forEach((r) => ctx.deleteRule(r.id));
-      parsed.rules.forEach((r) => { if (r && r.match) { ctx.addRule({ match: r.match, category: r.category }); restored++; } });
+      parsed.rules.forEach((r) => { if (r && r.match) { ctx.addRule({ match: r.match, category: normalizeCategoryName(r.category) }); restored++; } });
     }
     if (Array.isArray(parsed.recurring)) {
       (ctx.recurring || []).slice().forEach((r) => ctx.deleteRecurring(r.id));
@@ -3638,7 +3642,7 @@ export const TransactionsPage = () => {
             type: r.type === 'income' ? 'income' : 'expense',
             amount: amt,
             description: r.description,
-            category: r.category || 'Others',
+            category: normalizeCategoryName(r.category || USELESS_CATEGORY),
             paymentMethod: r.paymentMethod || 'Bank Transfer',
             tags: Array.isArray(r.tags) ? r.tags : [],
           };
@@ -3854,7 +3858,7 @@ export const TransactionsPage = () => {
                     <select value={leg.category}
                       onChange={(e) => setSplitLegs((p) => p.map((l, i) => i === idx ? { ...l, category: e.target.value } : l))}
                       style={{ ...inputStyle, cursor: 'pointer' }}>
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
                     </select>
                   </div>
                   <div>
@@ -3914,7 +3918,7 @@ export const TransactionsPage = () => {
                   cursor: 'pointer',
                 }}>
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c} style={{ background: themeTokens.surface, color: themeTokens.text }}>{c}</option>
+                  <option key={c} value={c} style={{ background: themeTokens.surface, color: themeTokens.text }}>{categoryLabel(c)}</option>
                 ))}
               </select>
               {fieldError('category')}
@@ -4019,7 +4023,7 @@ export const TransactionsPage = () => {
               <div>
                 <div style={{ color: themeTokens.text, fontSize: 14 }}>{tx.description}</div>
                 <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span>{tx.category}</span>
+                  <span>{categoryLabel(tx.category)}</span>
                   {PAYMENT_CHIP[tx.paymentMethod]
                     ? <PaymentChip method={tx.paymentMethod} />
                     : <span>· {tx.paymentMethod}</span>}
@@ -4077,7 +4081,7 @@ const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle }) =>
               paddingRight: 32, cursor: 'pointer',
             }}>
             {CATEGORIES.map((c) => (
-              <option key={c} value={c} style={{ background: themeTokens.surface, color: themeTokens.text }}>{c}</option>
+              <option key={c} value={c} style={{ background: themeTokens.surface, color: themeTokens.text }}>{categoryLabel(c)}</option>
             ))}
           </select>
         </div>
@@ -4103,9 +4107,9 @@ const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle }) =>
                 When description contains <strong style={{ color: themeTokens.accent }}>{r.match}</strong>
               </div>
               <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                → {r.category}
+                → {categoryLabel(r.category)}
               </div>
-              <button onClick={() => { if (confirmDelete(`Delete the rule "${r.match}" → ${r.category}?`)) deleteRule(r.id); }}
+              <button onClick={() => { if (confirmDelete(`Delete the rule "${r.match}" → ${categoryLabel(r.category)}?`)) deleteRule(r.id); }}
                 style={{
                   background: 'transparent', border: 'none',
                   color: themeTokens.textDim, cursor: 'pointer',
@@ -4193,7 +4197,7 @@ export const SubscriptionsPage = () => {
           <div>
             <Label tk={themeTokens}>Category</Label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
             </select>
           </div>
           <div>
@@ -4247,7 +4251,7 @@ export const SubscriptionsPage = () => {
               <div>
                 <div style={{ color: themeTokens.text, fontSize: 14 }}>{r.description}</div>
                 <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4 }}>
-                  {r.category} · {r.paymentMethod}
+                  {categoryLabel(r.category)} · {r.paymentMethod}
                 </div>
               </div>
               <div style={{ color: r.type === 'income' ? themeTokens.positive : themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, textAlign: 'right' }}>
@@ -4391,7 +4395,7 @@ const EditTransactionDialog = ({ tx, onClose, onSave }) => {
             <div>
               <Label tk={themeTokens}>Category</Label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
               </select>
             </div>
             <div>

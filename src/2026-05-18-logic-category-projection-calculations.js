@@ -24,15 +24,19 @@ export const periodToMonths = (period, now = new Date()) => {
 //   months           - how many months ahead
 //   reductionPct     - reduction as percentage (0-100), optional
 //   reductionFixed   - reduction in absolute currency per month, optional
-//                      If both provided, `reductionFixed` wins.
+//   increasePct      - increase as percentage (0-100), optional
+//   increaseFixed    - increase in absolute currency per month, optional
+//                      Fixed changes win over percentage changes.
 //   monthlyCap       - optional cap: new monthly = min(avg, cap). Wins over
-//                      reductionPct / reductionFixed when set.
+//                      percentage / fixed changes when set.
 // Returns: { baseline, reduced, savings, monthly, yearly, newMonthlyAvg, pct }
 export const projectCategorySpend = ({
   avg = 0,
   months = 12,
   reductionPct,
   reductionFixed,
+  increasePct,
+  increaseFixed,
   monthlyCap,
 } = {}) => {
   const a = Math.max(0, Number(avg) || 0);
@@ -41,8 +45,13 @@ export const projectCategorySpend = ({
   let newMonthlyAvg = a;
   if (Number.isFinite(monthlyCap) && monthlyCap !== null && monthlyCap !== undefined && monthlyCap !== '') {
     newMonthlyAvg = Math.min(a, Math.max(0, Number(monthlyCap) || 0));
+  } else if (Number.isFinite(increaseFixed) && increaseFixed !== null && increaseFixed !== undefined && increaseFixed !== '') {
+    newMonthlyAvg = a + Math.max(0, Number(increaseFixed) || 0);
   } else if (Number.isFinite(reductionFixed) && reductionFixed !== null && reductionFixed !== undefined && reductionFixed !== '') {
     newMonthlyAvg = Math.max(0, a - (Number(reductionFixed) || 0));
+  } else if (Number.isFinite(increasePct) && increasePct !== null && increasePct !== undefined && increasePct !== '') {
+    const pct = Math.max(0, Number(increasePct) || 0);
+    newMonthlyAvg = a * (1 + pct / 100);
   } else if (Number.isFinite(reductionPct) && reductionPct !== null && reductionPct !== undefined && reductionPct !== '') {
     const pct = Math.max(0, Math.min(100, Number(reductionPct) || 0));
     newMonthlyAvg = Math.max(0, a * (1 - pct / 100));
@@ -74,29 +83,29 @@ export const projectAcrossCategories = ({
   months = 12,
   reductionPct,
   reductionFixed,
+  increasePct,
+  increaseFixed,
+  monthlyCap,
 } = {}) => {
-  let baseline = 0, reduced = 0;
-  const perCategory = [];
-  for (const row of rows) {
-    const r = projectCategorySpend({
-      avg: row.average,
-      months,
-      reductionPct,
-      reductionFixed,
-    });
-    baseline += r.baseline;
-    reduced += r.reduced;
-    perCategory.push({ category: row.category, label: row.label, ...r });
-  }
-  const savings = baseline - reduced;
-  return {
-    baseline,
-    reduced,
-    savings,
-    monthly: savings / Math.max(1, months),
-    yearly: (savings / Math.max(1, months)) * 12,
-    perCategory,
+  const aggregateAverage = rows.reduce((sum, row) => sum + (Number(row.average) || 0), 0);
+  const aggregate = projectCategorySpend({
+    avg: aggregateAverage,
     months,
+    reductionPct,
+    reductionFixed,
+    increasePct,
+    increaseFixed,
+    monthlyCap,
+  });
+
+  return {
+    ...aggregate,
+    perCategory: rows.map((row) => ({
+      category: row.category,
+      label: row.label,
+      average: row.average,
+      total: row.total,
+    })),
   };
 };
 

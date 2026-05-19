@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { fmtCurrency } from './tokens.jsx';
 import { useAppContext } from './context.jsx';
+import { getCategoryDisplayName, normalizeCategoryName } from './2026-05-19-utils-category-colors.js';
 
 export const AuTooltip = ({ active, payload, label, tokens, fmt }) => {
   if (!active || !payload || !payload.length) return null;
@@ -208,9 +209,10 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
       if (tx.type !== 'expense') continue;
       const d = new Date(tx.date);
       if (!inRange(d)) continue;
-      sums[tx.category] = (sums[tx.category] || 0) + tx.amount;
+      const category = normalizeCategoryName(tx.category);
+      sums[category] = (sums[category] || 0) + tx.amount;
     }
-    return Object.entries(sums).map(([name, value]) => ({ name, value }))
+    return Object.entries(sums).map(([name, value]) => ({ name: getCategoryDisplayName(name), value }))
       .sort((a,b) => b.value-a.value).slice(0, 6);
   }, [transactions, range?.fromYear, range?.fromMonth, range?.toYear, range?.toMonth, selectedMonth?.year, selectedMonth?.month]);
 
