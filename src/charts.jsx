@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
-  PieChart, Pie, Sector, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
+  PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart,
 } from 'recharts';
 import { fmtCurrency } from './tokens.jsx';
 import { useAppContext } from './context.jsx';
 import { getCategoryDisplayName, normalizeCategoryName } from './2026-05-19-utils-category-colors.js';
 import { InlineCardTitle } from './card-explanations.jsx';
-import { usePieInteractions, ExpensePieActiveShape } from './2026-05-20-hook-pie-interactions.jsx';
+import {
+  BlackOutlineActiveShape,
+  ExpensePieActiveShape,
+  usePieInteractions,
+} from './2026-05-20-hook-pie-interactions.jsx';
 
 export const AuTooltip = ({ active, payload, label, tokens, fmt }) => {
   if (!active || !payload || !payload.length) return null;
@@ -206,13 +210,16 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
       <div
         ref={pie.containerRef}
         {...pie.containerProps}
-        style={{ outline: 'none', cursor: pie.active ? 'ns-resize' : 'pointer' }}
+        style={{
+          ...pie.containerProps.style,
+          outline: 'none',
+          cursor: pie.active ? 'ns-resize' : 'pointer',
+        }}
       >
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie data={data} dataKey="value" innerRadius={64} outerRadius={94} paddingAngle={2}
                  isAnimationActive animationDuration={900}
-                 {...pie.pieRotationProps}
                  activeIndex={active != null ? active : -1}
                  activeShape={ExpensePieActiveShape}
                  onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
@@ -346,13 +353,25 @@ export const RadarHealth = ({ metrics }) => {
 
 export const RadialGauge = ({ value, max, label, suffix = '%' }) => {
   const { themeTokens } = useAppContext();
+  const pie = usePieInteractions();
   const pct = Math.max(0, Math.min(1, value / max));
   const data = [
     { name: 'on', value: pct },
     { name: 'off', value: 1 - pct },
   ];
   return (
-    <div style={{ position: 'relative', width: '100%', height: 240 }}>
+    <div
+      ref={pie.containerRef}
+      {...pie.containerProps}
+      style={{
+        ...pie.containerProps.style,
+        position: 'relative',
+        width: '100%',
+        height: 240,
+        outline: 'none',
+        cursor: pie.active ? 'ns-resize' : 'pointer',
+      }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -361,6 +380,8 @@ export const RadialGauge = ({ value, max, label, suffix = '%' }) => {
             innerRadius="72%" outerRadius="100%"
             cornerRadius={10}
             stroke="none"
+            {...pie.pieHoverProps}
+            activeShape={BlackOutlineActiveShape}
             isAnimationActive animationDuration={1100}
           >
             <Cell fill={themeTokens.accent} />

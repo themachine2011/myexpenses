@@ -102,7 +102,6 @@ const useActiveRotation = () => {
   const wrapRef = useRef(null);
   const activeChartRef = useRef(null);
   const [activeChart, setActiveChart] = useState(null);
-  const [pieRotation, setPieRotation] = useState(0);
   const [barRotation, setBarRotation] = useState(0);
 
   useEffect(() => {
@@ -127,7 +126,6 @@ const useActiveRotation = () => {
       if (activeChartRef.current !== chart) return;
       event.preventDefault();
       const delta = event.deltaY > 0 ? 8 : -8;
-      if (chart === 'pie') setPieRotation((value) => value + delta);
       if (chart === 'bar') setBarRotation((value) => value + delta);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -138,7 +136,6 @@ const useActiveRotation = () => {
     wrapRef,
     activeChart,
     setActiveChart,
-    pieRotation,
     barRotation,
   };
 };
@@ -667,6 +664,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         {...pie.containerProps}
         data-category-average-chart="pie"
         style={{
+          ...pie.containerProps.style,
           border: `1px solid ${pie.active ? themeTokens.accent : invCardBorder}`,
           borderRadius: 14,
           background: invCardBg,
@@ -696,7 +694,6 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                     innerRadius={44}
                     outerRadius={72}
                     paddingAngle={2}
-                    {...pie.pieRotationProps}
                     {...pie.pieHoverProps}
                     activeShape={BlackOutlineActiveShape}
                     isAnimationActive
