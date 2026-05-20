@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 const MODES = [
   { id: 'normal',     label: 'Normal' },
@@ -10,6 +11,7 @@ const MODES = [
 
 export const CalculatorModeSwitcher = ({ value, onChange, layoutGroupId = 'calc-mode' }) => {
   const { themeTokens } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
   return (
     <div style={{
       display: 'grid',
@@ -17,8 +19,8 @@ export const CalculatorModeSwitcher = ({ value, onChange, layoutGroupId = 'calc-
       gap: 4,
       padding: 4,
       borderRadius: 999,
-      background: `${themeTokens.surface2}aa`,
-      border: `1px solid ${themeTokens.hairline}`,
+      background: themeTokens.isDark ? 'rgba(11,11,13,0.06)' : 'rgba(255,255,255,0.08)',
+      border: `1px solid ${inv.border}`,
       width: '100%',
       minWidth: 0,
       boxSizing: 'border-box',
@@ -35,7 +37,7 @@ export const CalculatorModeSwitcher = ({ value, onChange, layoutGroupId = 'calc-
               padding: '7px 4px',
               border: 'none',
               background: 'transparent',
-              color: active ? (themeTokens.isDark ? '#0B0B0D' : '#FFFFFF') : themeTokens.textDim,
+              color: active ? (themeTokens.isDark ? '#0B0B0D' : '#FFFFFF') : inv.muted,
               fontFamily: 'var(--font-mono)', fontSize: 10,
               letterSpacing: '0.16em', textTransform: 'uppercase',
               cursor: 'pointer',

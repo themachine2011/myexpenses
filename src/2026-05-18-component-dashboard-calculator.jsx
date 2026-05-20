@@ -6,6 +6,7 @@ import { NormalCalculator } from './2026-05-18-component-normal-calculator.jsx';
 import { ScientificCalculator } from './2026-05-18-component-scientific-calculator.jsx';
 import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
 import { InlineCardTitle } from './card-explanations.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 const SUBTITLE = {
   normal:     'Quick arithmetic',
@@ -18,12 +19,14 @@ const SUBTITLE = {
 // fully local — no localStorage keys, no context plumbing.
 export const DashboardCalculatorPanel = () => {
   const { themeTokens } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
   const [mode, setMode] = useState('normal');
 
   return (
     <div style={{
-      background: themeTokens.surface,
-      border: `1px solid ${themeTokens.hairline}`,
+      background: inv.bg,
+      color: inv.fg,
+      border: `1px solid ${inv.border}`,
       borderRadius: 16,
       padding: 16,
       display: 'grid',
@@ -39,11 +42,11 @@ export const DashboardCalculatorPanel = () => {
           fontSize: 10,
           letterSpacing: '0.28em',
           textTransform: 'uppercase',
-          color: themeTokens.textDim,
+          color: inv.muted,
         }}>Calculator</InlineCardTitle>
         <div style={{
           marginTop: 2,
-          color: themeTokens.textFaint,
+          color: inv.faint,
           fontFamily: 'var(--font-mono)',
           fontSize: 9,
           letterSpacing: '0.12em',

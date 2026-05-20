@@ -8,6 +8,7 @@ import { fmtCurrency } from './tokens.jsx';
 import { useAppContext } from './context.jsx';
 import { getCategoryDisplayName, normalizeCategoryName } from './2026-05-19-utils-category-colors.js';
 import { InlineCardTitle } from './card-explanations.jsx';
+import { usePieInteractions, ExpensePieActiveShape } from './2026-05-20-hook-pie-interactions.jsx';
 
 export const AuTooltip = ({ active, payload, label, tokens, fmt }) => {
   if (!active || !payload || !payload.length) return null;
@@ -161,39 +162,11 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
   );
 };
 
-// Active-shape renderer for the ExpensePie. Expands the hovered slice
-// outward by ~22px and adds a drop-shadow glow so the focus is unmistakable.
-const expensePieActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-  return (
-    <g>
-      <Sector
-        cx={cx} cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 22}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        stroke={fill}
-        strokeWidth={2}
-        style={{ filter: `drop-shadow(0 0 18px ${fill})` }}
-      />
-      <Sector
-        cx={cx} cy={cy}
-        innerRadius={outerRadius + 26}
-        outerRadius={outerRadius + 30}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        opacity={0.35}
-      />
-    </g>
-  );
-};
-
 export const ExpensePie = ({ transactions, selectedMonth, range }) => {
   const { themeTokens, fmt, getCategoryColor } = useAppContext();
-  const [active, setActive] = useState(null);
+  const pie = usePieInteractions();
+  const active = pie.hoverIndex;
+  const setActive = pie.setHoverIndex;
   const data = useMemo(() => {
     const now = new Date();
     const sums = {};
@@ -230,21 +203,28 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
 
   return (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 24, alignItems:'center' }}>
-      <ResponsiveContainer width="100%" height={260}>
-        <PieChart>
-          <Pie data={data} dataKey="value" innerRadius={64} outerRadius={94} paddingAngle={2}
-               isAnimationActive animationDuration={900}
-               activeIndex={active != null ? active : -1}
-               activeShape={expensePieActiveShape}
-               onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
-            {data.map((d) => (
-              <Cell key={d.category} fill={d.color} stroke="none"
-                    style={{ transition:'filter 200ms' }} />
-            ))}
-          </Pie>
-          <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
-        </PieChart>
-      </ResponsiveContainer>
+      <div
+        ref={pie.containerRef}
+        {...pie.containerProps}
+        style={{ outline: 'none', cursor: pie.active ? 'ns-resize' : 'pointer' }}
+      >
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie data={data} dataKey="value" innerRadius={64} outerRadius={94} paddingAngle={2}
+                 isAnimationActive animationDuration={900}
+                 {...pie.pieRotationProps}
+                 activeIndex={active != null ? active : -1}
+                 activeShape={ExpensePieActiveShape}
+                 onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
+              {data.map((d) => (
+                <Cell key={d.category} fill={d.color} stroke="none"
+                      style={{ transition:'filter 200ms' }} />
+              ))}
+            </Pie>
+            <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
       <div>
         {data.map((d,i) => (
           <div key={d.name}

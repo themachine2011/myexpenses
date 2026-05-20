@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppContext, CATEGORIES, MOTO_AMOUNT } from './context.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 import {
   buildCategoryAverageRows,
   buildFutureCategorySpendRows,
@@ -105,7 +106,17 @@ const setsEqual = (a, b) => {
 const emptyProjectionRow = { category: 'None', label: 'No category selected', average: 0, total: 0 };
 
 export const CategoryProjectionCalculator = () => {
-  const { transactions, recurring, reminders, themeTokens, fmt, getCategoryColor } = useAppContext();
+  const { transactions, recurring, reminders, themeTokens: rawTokens, fmt, getCategoryColor } = useAppContext();
+  const inv = getInvertedCardTokens(rawTokens);
+  const themeTokens = useMemo(() => ({
+    ...rawTokens,
+    text:      inv.fg,
+    textDim:   inv.muted,
+    textFaint: inv.faint,
+    hairline:  inv.border,
+    hairline2: inv.border,
+    surface2:  inv.bg,
+  }), [rawTokens, inv.bg, inv.fg, inv.muted, inv.faint, inv.border]);
   const now = useMemo(() => new Date(), []);
 
   const [historyKind, setHistoryKind] = useState('ytd');

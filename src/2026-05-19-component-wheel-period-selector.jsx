@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppContext } from './context.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 export const WheelPeriodSelector = ({ label, options, value, onChange, compact }) => {
   const { themeTokens } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
   const ref = useRef(null);
   const wheelRef = useRef(0);
   const activeRef = useRef(false);
@@ -54,7 +56,7 @@ export const WheelPeriodSelector = ({ label, options, value, onChange, compact }
     <div ref={ref} style={{ display: 'grid', gap: 6, minWidth: compact ? 86 : 106 }}>
       {label && (
         <div style={{
-          color: themeTokens.textDim,
+          color: inv.muted,
           fontFamily: 'var(--font-mono)',
           fontSize: 9,
           letterSpacing: '0.22em',
@@ -67,10 +69,10 @@ export const WheelPeriodSelector = ({ label, options, value, onChange, compact }
         onFocus={() => setActive(true)}
         style={{
           height: compact ? 74 : 86,
-          border: `1px solid ${active ? themeTokens.accent : themeTokens.hairline2}`,
+          border: `1px solid ${active ? themeTokens.accent : inv.border}`,
           borderRadius: 12,
-          background: active ? `${themeTokens.accent}14` : themeTokens.surface2,
-          color: themeTokens.text,
+          background: active ? `${themeTokens.accent}14` : inv.bg,
+          color: inv.fg,
           overflow: 'hidden',
           cursor: 'ns-resize',
           padding: 0,
@@ -89,7 +91,7 @@ export const WheelPeriodSelector = ({ label, options, value, onChange, compact }
         }}>
           {visible.map((item, itemIndex) => (
             <div key={`${item.value}-${itemIndex}`} style={{
-              color: itemIndex === 1 ? themeTokens.text : themeTokens.textFaint,
+              color: itemIndex === 1 ? inv.fg : inv.faint,
               fontFamily: itemIndex === 1 ? 'var(--font-display)' : 'var(--font-mono)',
               fontSize: itemIndex === 1 ? (compact ? 16 : 18) : 11,
               fontWeight: itemIndex === 1 ? 700 : 400,

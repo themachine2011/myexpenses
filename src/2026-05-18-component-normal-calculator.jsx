@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from './context.jsx';
 import { evalExpression, fmtBr } from './2026-05-18-utils-currency-calculator.js';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 // Standard 4-column calculator. The display is a normal input (so the user
 // can type with the physical keyboard) and the keypad below is for click /
 // touch input. Enter evaluates, Esc clears, Backspace deletes one char.
 export const NormalCalculator = ({ scientific = false }) => {
   const { themeTokens, fmt } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
   const [expr, setExpr] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -69,7 +71,7 @@ export const NormalCalculator = ({ scientific = false }) => {
   const buttonStyle = (variant = 'digit') => {
     const base = {
       padding: '10px 0',
-      border: `1px solid ${themeTokens.hairline2}`,
+      border: `1px solid ${inv.border}`,
       borderRadius: 10,
       fontFamily: 'var(--font-mono)',
       fontSize: 14,
@@ -79,13 +81,13 @@ export const NormalCalculator = ({ scientific = false }) => {
       minWidth: 0,
     };
     if (variant === 'digit') {
-      return { ...base, background: themeTokens.surface2, color: themeTokens.text };
+      return { ...base, background: 'transparent', color: inv.fg };
     }
     if (variant === 'op') {
       return { ...base, background: 'transparent', color: themeTokens.accent, borderColor: themeTokens.accent + '66' };
     }
     if (variant === 'fn') {
-      return { ...base, background: 'transparent', color: themeTokens.textDim, fontSize: 11, letterSpacing: '0.06em' };
+      return { ...base, background: 'transparent', color: inv.muted, fontSize: 11, letterSpacing: '0.06em' };
     }
     if (variant === 'eq') {
       return {
@@ -97,7 +99,7 @@ export const NormalCalculator = ({ scientific = false }) => {
       };
     }
     if (variant === 'mem') {
-      return { ...base, background: 'transparent', color: themeTokens.textDim, fontSize: 10, letterSpacing: '0.08em' };
+      return { ...base, background: 'transparent', color: inv.muted, fontSize: 10, letterSpacing: '0.08em' };
     }
     return base;
   };
@@ -118,9 +120,9 @@ export const NormalCalculator = ({ scientific = false }) => {
     <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
       {/* Display */}
       <div style={{
-        border: `1px solid ${themeTokens.hairline}`,
+        border: `1px solid ${inv.border}`,
         borderRadius: 12,
-        background: `${themeTokens.surface2}66`,
+        background: 'transparent',
         padding: '10px 12px',
         display: 'grid',
         gap: 4,
@@ -137,7 +139,7 @@ export const NormalCalculator = ({ scientific = false }) => {
             width: '100%',
             background: 'transparent',
             border: 'none', outline: 'none',
-            color: themeTokens.text,
+            color: inv.fg,
             fontFamily: 'var(--font-mono)',
             fontSize: 18,
             textAlign: 'right',
@@ -149,7 +151,7 @@ export const NormalCalculator = ({ scientific = false }) => {
           textAlign: 'right',
           fontFamily: 'var(--font-mono)',
           fontSize: 12,
-          color: error ? themeTokens.negative : themeTokens.textDim,
+          color: error ? themeTokens.negative : inv.muted,
         }}>
           {error
             ? error
@@ -179,7 +181,7 @@ export const NormalCalculator = ({ scientific = false }) => {
             gap: 6,
             minWidth: 0,
             paddingBottom: 4,
-            borderBottom: `1px dashed ${themeTokens.hairline}`,
+            borderBottom: `1px dashed ${inv.border}`,
           }}>
             <Key label="M+"  onPress={memoryAdd}    variant="mem" />
             <Key label="M−"  onPress={memorySub}    variant="mem" />
@@ -187,7 +189,7 @@ export const NormalCalculator = ({ scientific = false }) => {
             <Key label="MC"  onPress={memoryClear}  variant="mem" />
           </div>
           <div style={{
-            color: themeTokens.textFaint,
+            color: inv.faint,
             fontFamily: 'var(--font-mono)', fontSize: 9,
             letterSpacing: '0.12em', textTransform: 'uppercase',
             textAlign: 'right',

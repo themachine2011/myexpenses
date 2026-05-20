@@ -23,6 +23,8 @@ import {
 } from './2026-05-19-utils-category-colors.js';
 import { InlineCardTitle } from './card-explanations.jsx';
 import { LockedReferenceCard } from './2026-05-18-component-locked-reference-card.jsx';
+import { usePieInteractions, BlackOutlineActiveShape } from './2026-05-20-hook-pie-interactions.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, month) => ({
   value: month,
@@ -143,6 +145,7 @@ const useActiveRotation = () => {
 
 const PeriodPairSelector = ({ mode, periodA, periodB, onChangeA, onChangeB }) => {
   const { themeTokens } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
   const years = yearOptions(new Date().getFullYear());
 
   const selectForMode = (period, onChange, prefix) => {
@@ -180,9 +183,10 @@ const PeriodPairSelector = ({ mode, periodA, periodB, onChangeA, onChangeB }) =>
       display: 'grid',
       gap: 10,
       padding: 10,
-      border: `1px solid ${themeTokens.hairline}`,
+      border: `1px solid ${inv.border}`,
       borderRadius: 12,
-      background: `${themeTokens.surface2}88`,
+      background: inv.bg,
+      color: inv.fg,
       minWidth: 0,
       overflow: 'hidden',
     }}>
@@ -211,6 +215,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
     resetCategoryColor,
   } = useAppContext();
   const rotation = useActiveRotation();
+  const pie = usePieInteractions();
   const now = new Date();
   const [visibleCategories, setVisibleCategories] = useState(() =>
     new Set(CATEGORIES.filter((category) => category !== FINANCING_CATEGORY && category !== 'Income'))
@@ -350,6 +355,13 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   const defaultColor = getDefaultCategoryColor(colorCategory);
   const hasCustomColor = selectedColor !== defaultColor || !!categoryColorOverrides?.[colorCategory];
 
+  const inv = getInvertedCardTokens(themeTokens);
+  const invCardBg = inv.bg;
+  const invCardFg = inv.fg;
+  const invCardMuted = inv.muted;
+  const invCardFaint = inv.faint;
+  const invCardBorder = inv.border;
+
   const chartFrame = (chart, children) => (
     <div
       role="button"
@@ -360,9 +372,10 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       }}
       data-category-average-chart={chart}
       style={{
-        border: `1px solid ${rotation.activeChart === chart ? themeTokens.accent : themeTokens.hairline}`,
+        border: `1px solid ${rotation.activeChart === chart ? themeTokens.accent : inv.border}`,
         borderRadius: 14,
-        background: `${themeTokens.surface2}66`,
+        background: inv.bg,
+        color: inv.fg,
         padding: 10,
         width: '100%',
         minWidth: 0,
@@ -393,7 +406,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       <div style={{
         minWidth: 0,
         padding: side === 'left' ? '10px 10px 10px 0' : '10px 0 10px 10px',
-        borderRight: side === 'left' ? `1px solid ${themeTokens.hairline2}` : 'none',
+        borderRight: side === 'left' ? `1px solid ${inv.border}` : 'none',
         display: 'grid',
         gridTemplateRows: 'auto 1fr',
         gap: 10,
@@ -402,7 +415,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         <div style={{
           minWidth: 0,
           paddingBottom: 8,
-          borderBottom: `1px solid ${themeTokens.hairline}`,
+          borderBottom: `1px solid ${inv.hairline}`,
           textAlign: 'center',
         }}>
           <div style={{
@@ -418,7 +431,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
             {period.label}
           </div>
           <div style={{
-            color: themeTokens.text,
+            color: inv.fg,
             fontFamily: 'var(--font-mono)',
             fontSize: 12,
             marginTop: 4,
@@ -429,17 +442,17 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
 
         <div style={{ display: 'grid', gap: 8, alignContent: 'start', minWidth: 0, overflow: 'hidden' }}>
           {rows.length === 0 ? (
-            <div style={{ color: themeTokens.textDim, fontSize: 12, textAlign: 'center', padding: '28px 4px' }}>
+            <div style={{ color: inv.muted, fontSize: 12, textAlign: 'center', padding: '28px 4px' }}>
               No spending.
             </div>
           ) : rows.map((row) => {
             const width = `${Math.max(4, Math.min(100, (row.value / comparisonPanes.max) * 100))}%`;
-            const amountColor = valueColor(row.value, row.category, themeTokens.textDim);
+            const amountColor = valueColor(row.value, row.category, inv.muted);
             return (
               <div key={`${period.label}-${row.category}`} style={{ minWidth: 0, display: 'grid', gap: 4 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, alignItems: 'baseline' }}>
                   <span style={{
-                    color: themeTokens.text,
+                    color: inv.fg,
                     fontSize: 11,
                     lineHeight: 1.15,
                     whiteSpace: 'nowrap',
@@ -460,7 +473,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                 <div style={{
                   height: 7,
                   borderRadius: 999,
-                  background: themeTokens.hairline,
+                  background: inv.border,
                   overflow: 'hidden',
                 }}>
                   <div style={{
@@ -519,16 +532,17 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       </div>
 
       <div style={{
-        border: `1px solid ${themeTokens.hairline}`,
+        border: `1px solid ${invCardBorder}`,
         borderRadius: 12,
         padding: 10,
-        background: `${themeTokens.surface2}66`,
+        background: invCardBg,
+        color: invCardFg,
         display: 'grid',
         gap: 8,
         minWidth: 0,
       }}>
         <div style={{
-          color: themeTokens.textDim,
+          color: invCardMuted,
           fontFamily: 'var(--font-mono)',
           fontSize: 9,
           letterSpacing: '0.18em',
@@ -544,9 +558,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
               minWidth: 0,
               width: '100%',
               background: 'transparent',
-              border: `1px solid ${themeTokens.hairline2}`,
+              border: `1px solid ${invCardBorder}`,
               borderRadius: 8,
-              color: themeTokens.text,
+              color: invCardFg,
               cursor: 'pointer',
               fontFamily: 'var(--font-body)',
               fontSize: 12,
@@ -569,7 +583,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
               width: 42,
               height: 32,
               padding: 2,
-              border: `1px solid ${themeTokens.hairline2}`,
+              border: `1px solid ${invCardBorder}`,
               borderRadius: 8,
               background: 'transparent',
               cursor: 'pointer',
@@ -580,10 +594,10 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
             disabled={!hasCustomColor}
             onClick={() => resetCategoryColor(colorCategory)}
             style={{
-              border: `1px solid ${themeTokens.hairline2}`,
+              border: `1px solid ${invCardBorder}`,
               background: 'transparent',
               borderRadius: 8,
-              color: hasCustomColor ? themeTokens.textDim : themeTokens.textFaint,
+              color: hasCustomColor ? invCardMuted : invCardFaint,
               cursor: hasCustomColor ? 'pointer' : 'not-allowed',
               fontFamily: 'var(--font-mono)',
               fontSize: 9,
@@ -600,15 +614,16 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
 
       <LockedReferenceCard front={(
         <div style={{
-          border: `1px solid ${themeTokens.hairline}`,
+          border: `1px solid ${invCardBorder}`,
           borderRadius: 12,
           padding: 10,
-          background: `${themeTokens.surface2}44`,
+          background: invCardBg,
+          color: invCardFg,
           display: 'grid',
           gap: 8,
         }}>
           <div style={{
-            color: themeTokens.textDim,
+            color: invCardMuted,
             fontFamily: 'var(--font-mono)',
             fontSize: 9,
             letterSpacing: '0.18em',
@@ -618,24 +633,24 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <div style={{ color: invCardFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 Avg / day
               </div>
-              <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
+              <div style={{ color: invCardFg, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
                 {fmt(lockedDailyAverage)}
               </div>
             </div>
             <div>
-              <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <div style={{ color: invCardFaint, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 Avg / month
               </div>
-              <div style={{ color: themeTokens.text, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
+              <div style={{ color: invCardFg, fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 3 }}>
                 {fmt(lockedMonthlyAverage)}
               </div>
             </div>
           </div>
           <div style={{
-            color: themeTokens.textFaint,
+            color: invCardFaint,
             fontFamily: 'var(--font-mono)',
             fontSize: 9,
             letterSpacing: '0.12em',
@@ -647,9 +662,28 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         </div>
       )} />
 
-      {chartFrame('pie', (
+      <div
+        ref={pie.containerRef}
+        {...pie.containerProps}
+        data-category-average-chart="pie"
+        style={{
+          border: `1px solid ${pie.active ? themeTokens.accent : invCardBorder}`,
+          borderRadius: 14,
+          background: invCardBg,
+          color: invCardFg,
+          padding: 10,
+          width: '100%',
+          minWidth: 0,
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          cursor: pie.active ? 'ns-resize' : 'pointer',
+          outline: 'none',
+          transition: 'border 180ms, box-shadow 180ms',
+          boxShadow: pie.active ? `0 0 0 3px ${themeTokens.accent}16` : 'none',
+        }}
+      >
         <div style={{ display: 'grid', gap: 8 }}>
-          <InlineCardTitle explanationKey="Distribution" style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <InlineCardTitle explanationKey="Distribution" style={{ color: invCardMuted, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Distribution
           </InlineCardTitle>
           <div style={{ height: 188 }}>
@@ -662,8 +696,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                     innerRadius={44}
                     outerRadius={72}
                     paddingAngle={2}
-                    startAngle={90 + rotation.pieRotation}
-                    endAngle={-270 + rotation.pieRotation}
+                    {...pie.pieRotationProps}
+                    {...pie.pieHoverProps}
+                    activeShape={BlackOutlineActiveShape}
                     isAnimationActive
                     animationDuration={600}
                   >
@@ -675,13 +710,13 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ height: '100%', display: 'grid', placeItems: 'center', color: themeTokens.textDim, fontSize: 12 }}>
+              <div style={{ height: '100%', display: 'grid', placeItems: 'center', color: invCardFaint, fontSize: 12 }}>
                 No visible spending.
               </div>
             )}
           </div>
         </div>
-      ))}
+      </div>
 
       <div style={{ display: 'grid', gap: 8 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -750,14 +785,15 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       ))}
 
       <details style={{
-        border: `1px solid ${themeTokens.hairline}`,
+        border: `1px solid ${invCardBorder}`,
         borderRadius: 12,
         padding: 10,
-        background: `${themeTokens.surface2}66`,
+        background: invCardBg,
+        color: invCardFg,
       }}>
         <summary style={{
           cursor: 'pointer',
-          color: themeTokens.text,
+          color: invCardFg,
           fontFamily: 'var(--font-mono)',
           fontSize: 10,
           letterSpacing: '0.16em',
@@ -769,7 +805,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
           {categoryOptions.map((row) => {
             const checked = visibleCategories.has(row.category);
             const color = getCategoryColor(row.category);
-            const amountColor = valueColor(row.average, row.category, themeTokens.textDim);
+            const amountColor = valueColor(row.average, row.category, invCardMuted);
             const locked = lockedByCategory.get(row.category);
             return (
               <label key={row.category} style={{
@@ -778,7 +814,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                 alignItems: 'center',
                 gap: 8,
                 cursor: 'pointer',
-                color: themeTokens.text,
+                color: invCardFg,
                 fontSize: 12,
               }}>
                 <input
@@ -801,7 +837,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
                   justifyItems: 'end',
                 }}>
                   <span>{fmt(row.average)}</span>
-                  <span style={{ color: themeTokens.textFaint, fontSize: 9 }}>
+                  <span style={{ color: invCardFaint, fontSize: 9 }}>
                     {fmt(locked?.averagePerDay || 0)}/d · {fmt(locked?.averagePerMonth || 0)}/mo
                   </span>
                 </span>
