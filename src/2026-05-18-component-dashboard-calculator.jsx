@@ -23,7 +23,7 @@ export const DashboardCalculatorPanel = () => {
   const [mode, setMode] = useState('normal');
 
   return (
-    <div style={{
+    <div className="aurum-card-flash-hover" style={{
       background: inv.bg,
       color: inv.fg,
       border: `1px solid ${inv.border}`,
@@ -35,6 +35,9 @@ export const DashboardCalculatorPanel = () => {
       minWidth: 0,
       boxSizing: 'border-box',
       overflow: 'hidden',
+      '--black-card-base-bg': inv.bg,
+      '--black-card-rest-border': inv.border,
+      '--black-card-rest-shadow': 'none',
     }}>
       <div>
         <InlineCardTitle style={{

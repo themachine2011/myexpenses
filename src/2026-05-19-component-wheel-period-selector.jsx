@@ -65,19 +65,23 @@ export const WheelPeriodSelector = ({ label, options, value, onChange, compact }
       )}
       <button
         type="button"
+        className="aurum-card-flash-hover"
         onClick={() => setActive(true)}
         onFocus={() => setActive(true)}
         style={{
           height: compact ? 74 : 86,
           border: `1px solid ${active ? themeTokens.accent : inv.border}`,
           borderRadius: 12,
-          background: active ? `${themeTokens.accent}14` : inv.bg,
+          background: inv.bg,
           color: inv.fg,
           overflow: 'hidden',
           cursor: 'ns-resize',
           padding: 0,
           boxShadow: active ? `0 0 0 3px ${themeTokens.accent}18` : 'none',
           transition: 'border 180ms, background 180ms, box-shadow 180ms',
+          '--black-card-base-bg': inv.bg,
+          '--black-card-rest-border': active ? themeTokens.accent : inv.border,
+          '--black-card-rest-shadow': active ? `0 0 0 3px ${themeTokens.accent}18` : 'none',
         }}
       >
         <div style={{

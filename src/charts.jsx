@@ -216,21 +216,23 @@ export const ExpensePie = ({ transactions, selectedMonth, range }) => {
           cursor: pie.active ? 'ns-resize' : 'pointer',
         }}
       >
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie data={data} dataKey="value" innerRadius={64} outerRadius={94} paddingAngle={2}
-                 isAnimationActive animationDuration={900}
-                 activeIndex={active != null ? active : -1}
-                 activeShape={ExpensePieActiveShape}
-                 onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
-              {data.map((d) => (
-                <Cell key={d.category} fill={d.color} stroke="none"
-                      style={{ transition:'filter 200ms' }} />
-              ))}
-            </Pie>
-            <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
-          </PieChart>
-        </ResponsiveContainer>
+        <div {...pie.tiltLayerProps}>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={data} dataKey="value" innerRadius={64} outerRadius={94} paddingAngle={2}
+                   isAnimationActive animationDuration={900}
+                   activeIndex={active != null ? active : -1}
+                   activeShape={ExpensePieActiveShape}
+                   onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
+                {data.map((d) => (
+                  <Cell key={d.category} fill={d.color} stroke="none"
+                        style={{ transition:'filter 200ms' }} />
+                ))}
+              </Pie>
+              <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
       <div>
         {data.map((d,i) => (
@@ -372,23 +374,25 @@ export const RadialGauge = ({ value, max, label, suffix = '%' }) => {
         cursor: pie.active ? 'ns-resize' : 'pointer',
       }}
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data} dataKey="value"
-            startAngle={180} endAngle={0}
-            innerRadius="72%" outerRadius="100%"
-            cornerRadius={10}
-            stroke="none"
-            {...pie.pieHoverProps}
-            activeShape={BlackOutlineActiveShape}
-            isAnimationActive animationDuration={1100}
-          >
-            <Cell fill={themeTokens.accent} />
-            <Cell fill={themeTokens.hairline2} />
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
+      <div {...pie.tiltLayerProps} style={{ height: '100%' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data} dataKey="value"
+              startAngle={180} endAngle={0}
+              innerRadius="72%" outerRadius="100%"
+              cornerRadius={10}
+              stroke="none"
+              {...pie.pieHoverProps}
+              activeShape={BlackOutlineActiveShape}
+              isAnimationActive animationDuration={1100}
+            >
+              <Cell fill={themeTokens.accent} />
+              <Cell fill={themeTokens.hairline2} />
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
       <div style={{
         position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
         paddingTop: 32, pointerEvents: 'none',

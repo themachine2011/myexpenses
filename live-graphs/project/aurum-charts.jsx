@@ -1,5 +1,5 @@
 /* global React, Recharts */
-const { useMemo, useState, useEffect, useRef } = React;
+const { useMemo, useState, useEffect, useRef, useCallback } = React;
 const { ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
         PieChart, Pie, Sector, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
         XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart } = window.Recharts;
@@ -34,7 +34,7 @@ const AuTooltip = ({ active, payload, label, tokens, fmt }) => {
   );
 };
 
-const PIE_CONTINUOUS_SPIN_SECONDS = 75;
+const PIE_CONTINUOUS_SPIN_SECONDS = 180;
 const PIE_MANUAL_STEP_DEG = 1;
 const PIE_MANUAL_SPIN_MS = 100;
 const PIE_ROTATION_STYLE_ID = 'pie-chart-rotation-styles';
@@ -47,23 +47,51 @@ const ensurePieRotationStyles = () => {
   style.id = PIE_ROTATION_STYLE_ID;
   style.textContent = `
 @keyframes pieContinuousSpin {
-  from { rotate: 0deg; }
-  to { rotate: 360deg; }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.pie-rotation-root {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+.pie-tilt-layer {
+  width: 100%;
+  transform: rotateX(var(--pie-tilt-x, 0deg)) rotateY(var(--pie-tilt-y, 0deg));
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.pie-rotation-root[data-pie-hovering="true"] .pie-tilt-layer {
+  transition-duration: 120ms;
+}
+
+.pie-rotation-root .recharts-surface {
+  transform-box: fill-box;
+  transform-origin: center center;
+  will-change: transform;
+  animation: pieContinuousSpin var(--pie-continuous-spin-duration, ${PIE_CONTINUOUS_SPIN_SECONDS}s) linear infinite;
+  animation-play-state: var(--pie-rotation-play-state, running);
 }
 
 .pie-rotation-root .recharts-pie {
   transform-box: fill-box;
   transform-origin: center center;
   will-change: transform;
-  animation: pieContinuousSpin var(--pie-continuous-spin-duration, ${PIE_CONTINUOUS_SPIN_SECONDS}s) linear infinite;
-  animation-play-state: var(--pie-rotation-play-state, running);
   transform: rotate(var(--pie-manual-rotation-deg, 0deg));
   transition: transform var(--pie-manual-spin-duration, ${PIE_MANUAL_SPIN_MS}ms) var(--pie-manual-spin-easing, ${PIE_MANUAL_EASING});
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pie-rotation-root .recharts-pie {
+  .pie-rotation-root .recharts-surface {
     animation: none;
+  }
+
+  .pie-rotation-root .recharts-pie,
+  .pie-tilt-layer {
     transition-duration: 50ms;
   }
 }
@@ -109,6 +137,8 @@ const usePieChartRotation = () => {
   const lastWheelDirectionRef = useRef(0);
   const pendingRotationRef = useRef(0);
   const frameRef = useRef(null);
+  const tiltFrameRef = useRef(null);
+  const tiltTargetRef = useRef({ x: 0, y: 0 });
   const [active, setActive] = useState(false);
   const [rotationDeg, setRotationDeg] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
@@ -153,6 +183,32 @@ const usePieChartRotation = () => {
     pendingRotationRef.current += direction * PIE_MANUAL_STEP_DEG;
     if (frameRef.current == null) frameRef.current = requestAnimationFrame(flushRotation);
   };
+
+  const flushTilt = useCallback(() => {
+    tiltFrameRef.current = null;
+    const el = containerRef.current;
+    if (!el) return;
+    const { x, y } = tiltTargetRef.current;
+    el.style.setProperty('--pie-tilt-x', `${x}deg`);
+    el.style.setProperty('--pie-tilt-y', `${y}deg`);
+  }, []);
+
+  const queueTilt = useCallback((x, y) => {
+    tiltTargetRef.current = { x, y };
+    if (tiltFrameRef.current == null) tiltFrameRef.current = requestAnimationFrame(flushTilt);
+  }, [flushTilt]);
+
+  const handlePointerMove = useCallback((event) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const px = (event.clientX - rect.left) / rect.width - 0.5;
+    const py = (event.clientY - rect.top) / rect.height - 0.5;
+    queueTilt(-py * 18, px * 18);
+  }, [queueTilt]);
+
+  const resetTilt = useCallback(() => {
+    queueTilt(0, 0);
+  }, [queueTilt]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -199,6 +255,7 @@ const usePieChartRotation = () => {
   useEffect(() => {
     return () => {
       if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+      if (tiltFrameRef.current != null) cancelAnimationFrame(tiltFrameRef.current);
     };
   }, []);
 
@@ -207,11 +264,19 @@ const usePieChartRotation = () => {
     containerRef,
     containerProps: {
       className: 'pie-rotation-root',
+      'data-pie-hovering': active ? 'true' : 'false',
       onClick: () => setActive(true),
       onPointerEnter: () => setActive(true),
-      onPointerLeave: () => setActive(false),
+      onPointerMove: handlePointerMove,
+      onPointerLeave: () => {
+        setActive(false);
+        resetTilt();
+      },
       onFocus: () => setActive(true),
-      onBlur: () => setActive(false),
+      onBlur: () => {
+        setActive(false);
+        resetTilt();
+      },
       onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') setActive(true); },
       role: 'button',
       tabIndex: 0,
@@ -222,6 +287,9 @@ const usePieChartRotation = () => {
         '--pie-manual-spin-easing': PIE_MANUAL_EASING,
         '--pie-rotation-play-state': isVisible && isPageVisible ? 'running' : 'paused',
       },
+    },
+    tiltLayerProps: {
+      className: 'pie-tilt-layer',
     },
   };
 };
@@ -355,21 +423,23 @@ const ExpensePie = ({ transactions }) => {
           cursor: pie.active ? 'ns-resize' : 'pointer',
         }}
       >
-        <ResponsiveContainer width="100%" height={240}>
-          <PieChart>
-            <Pie data={data} dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={2}
-                 isAnimationActive animationDuration={900}
-                 activeIndex={active != null ? active : -1}
-                 activeShape={ExpensePieActiveShape}
-                 onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
-              {data.map((_,i) => (
-                <Cell key={i} fill={palette[i % palette.length]} stroke="none"
-                      style={{ filter: active===i ? `drop-shadow(0 0 12px ${palette[i % palette.length]})` : 'none', transition:'filter 200ms' }} />
-              ))}
-            </Pie>
-            <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
-          </PieChart>
-        </ResponsiveContainer>
+        <div {...pie.tiltLayerProps}>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={data} dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={2}
+                   isAnimationActive animationDuration={900}
+                   activeIndex={active != null ? active : -1}
+                   activeShape={ExpensePieActiveShape}
+                   onMouseEnter={(_,i) => setActive(i)} onMouseLeave={() => setActive(null)}>
+                {data.map((_,i) => (
+                  <Cell key={i} fill={palette[i % palette.length]} stroke="none"
+                        style={{ filter: active===i ? `drop-shadow(0 0 12px ${palette[i % palette.length]})` : 'none', transition:'filter 200ms' }} />
+                ))}
+              </Pie>
+              <Tooltip content={(p) => <AuTooltip {...p} tokens={themeTokens} fmt={fmt} />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
       <div>
         {data.map((d,i) => (

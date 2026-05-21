@@ -17,6 +17,7 @@ import { StorageErrorToast } from './2026-05-16-utils-storage-write-guard.jsx';
 import {
   useAutoBackup, buildBackupPayload, downloadBackup, setBackupSettings, getBackupSettings,
 } from './2026-05-16-backup-scheduled-json-export.jsx';
+import { GlassTheme } from './2026-05-20-component-glass-theme.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -110,9 +111,47 @@ const App = () => {
         --font-display: ${fonts.display};
         --font-body:    ${fonts.body};
         --font-mono:    ${fonts.mono};
+        --card-hover-bg: rgba(125, 170, 225, 0.12);
+        --card-hover-border: #7DAAE1;
+        --card-hover-shadow: 0 14px 30px rgba(125, 170, 225, 0.16);
+        --black-card-flash-bg: rgba(125, 170, 225, 0.46);
+        --black-card-flash-shadow: 0 0 0 3px rgba(125, 170, 225, 0.26), 0 16px 36px rgba(125, 170, 225, 0.2);
       }
       body, body * { font-style: normal !important; }
       em, i { font-style: normal !important; font-weight: 400; }
+      @keyframes aurumDiamondBlueFlash {
+        0%, 100% {
+          background: var(--black-card-base-bg, #0B0B0D);
+          border-color: var(--black-card-rest-border, rgba(255,255,255,0.16));
+          box-shadow: var(--black-card-rest-shadow, none);
+        }
+        34% {
+          background: var(--black-card-flash-bg);
+          border-color: var(--card-hover-border);
+          box-shadow: var(--black-card-flash-shadow);
+        }
+      }
+      .aurum-card-hover {
+        transition:
+          background 180ms ease,
+          border-color 180ms ease,
+          box-shadow 180ms ease,
+          transform 180ms ease;
+      }
+      .aurum-card-hover:hover {
+        background: var(--card-hover-bg) !important;
+        border-color: var(--card-hover-border) !important;
+        box-shadow: var(--card-hover-shadow) !important;
+      }
+      .aurum-card-flash-hover {
+        transition:
+          border-color 180ms ease,
+          box-shadow 180ms ease,
+          transform 180ms ease;
+      }
+      .aurum-card-flash-hover:hover {
+        animation: aurumDiamondBlueFlash 520ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+      }
     `;
   }, [tk, fonts]);
 
@@ -150,6 +189,8 @@ const App = () => {
         position: 'relative',
       }}>
 
+        <GlassTheme tk={tk} setTheme={(v) => setTweak('theme', v)} />
+
         <ParticleField />
 
         <AnimatePresence>
@@ -180,7 +221,7 @@ const App = () => {
               <div style={{
                 fontFamily: fonts.display, fontWeight: 700, fontSize: 28,
                 color: tk.text, letterSpacing: '-0.01em'
-              }}>Bank</div>
+              }}>Wallet</div>
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 18,
                 color: balance >= 0 ? tk.positive : tk.negative,

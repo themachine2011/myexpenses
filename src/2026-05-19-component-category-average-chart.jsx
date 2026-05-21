@@ -176,7 +176,7 @@ const PeriodPairSelector = ({ mode, periodA, periodB, onChangeA, onChangeB }) =>
   };
 
   return (
-    <div style={{
+    <div className="aurum-card-flash-hover" style={{
       display: 'grid',
       gap: 10,
       padding: 10,
@@ -186,6 +186,9 @@ const PeriodPairSelector = ({ mode, periodA, periodB, onChangeA, onChangeB }) =>
       color: inv.fg,
       minWidth: 0,
       overflow: 'hidden',
+      '--black-card-base-bg': inv.bg,
+      '--black-card-rest-border': inv.border,
+      '--black-card-rest-shadow': 'none',
     }}>
       <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: mode === 'year' ? '1fr' : '1fr 1fr', gap: 8, minWidth: 0 }}>
@@ -361,6 +364,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
 
   const chartFrame = (chart, children) => (
     <div
+      className="aurum-card-flash-hover"
       role="button"
       tabIndex={0}
       onClick={() => rotation.setActiveChart(chart)}
@@ -382,6 +386,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         outline: 'none',
         transition: 'border 180ms, box-shadow 180ms',
         boxShadow: rotation.activeChart === chart ? `0 0 0 3px ${themeTokens.accent}16` : 'none',
+        '--black-card-base-bg': inv.bg,
+        '--black-card-rest-border': rotation.activeChart === chart ? themeTokens.accent : inv.border,
+        '--black-card-rest-shadow': rotation.activeChart === chart ? `0 0 0 3px ${themeTokens.accent}16` : 'none',
       }}
     >
       {children}
@@ -490,7 +497,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   };
 
   return (
-    <div ref={rotation.wrapRef} style={{
+    <div ref={rotation.wrapRef} className="aurum-card-hover" style={{
       background: themeTokens.surface,
       border: `1px solid ${themeTokens.hairline}`,
       borderRadius: 16,
@@ -528,7 +535,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         }}>{ytdPeriod.label} avg over {ytdPeriod.monthsIncluded} mo</div>
       </div>
 
-      <div style={{
+      <div className="aurum-card-flash-hover" style={{
         border: `1px solid ${invCardBorder}`,
         borderRadius: 12,
         padding: 10,
@@ -537,6 +544,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         display: 'grid',
         gap: 8,
         minWidth: 0,
+        '--black-card-base-bg': invCardBg,
+        '--black-card-rest-border': invCardBorder,
+        '--black-card-rest-shadow': 'none',
       }}>
         <div style={{
           color: invCardMuted,
@@ -610,7 +620,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       </div>
 
       <LockedReferenceCard front={(
-        <div style={{
+        <div className="aurum-card-flash-hover" style={{
           border: `1px solid ${invCardBorder}`,
           borderRadius: 12,
           padding: 10,
@@ -618,6 +628,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
           color: invCardFg,
           display: 'grid',
           gap: 8,
+          '--black-card-base-bg': invCardBg,
+          '--black-card-rest-border': invCardBorder,
+          '--black-card-rest-shadow': 'none',
         }}>
           <div style={{
             color: invCardMuted,
@@ -662,6 +675,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       <div
         ref={pie.containerRef}
         {...pie.containerProps}
+        className={`aurum-card-flash-hover ${pie.containerProps.className}`}
         data-category-average-chart="pie"
         style={{
           ...pie.containerProps.style,
@@ -678,13 +692,16 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
           outline: 'none',
           transition: 'border 180ms, box-shadow 180ms',
           boxShadow: pie.active ? `0 0 0 3px ${themeTokens.accent}16` : 'none',
+          '--black-card-base-bg': invCardBg,
+          '--black-card-rest-border': pie.active ? themeTokens.accent : invCardBorder,
+          '--black-card-rest-shadow': pie.active ? `0 0 0 3px ${themeTokens.accent}16` : 'none',
         }}
       >
         <div style={{ display: 'grid', gap: 8 }}>
           <InlineCardTitle explanationKey="Distribution" style={{ color: invCardMuted, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Distribution
           </InlineCardTitle>
-          <div style={{ height: 188 }}>
+          <div {...pie.tiltLayerProps} style={{ height: 188 }}>
             {pieData.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -781,12 +798,15 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         </div>
       ))}
 
-      <details style={{
+      <details className="aurum-card-flash-hover" style={{
         border: `1px solid ${invCardBorder}`,
         borderRadius: 12,
         padding: 10,
         background: invCardBg,
         color: invCardFg,
+        '--black-card-base-bg': invCardBg,
+        '--black-card-rest-border': invCardBorder,
+        '--black-card-rest-shadow': 'none',
       }}>
         <summary style={{
           cursor: 'pointer',

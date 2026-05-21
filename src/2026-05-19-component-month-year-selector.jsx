@@ -21,19 +21,26 @@ export const DashboardMonthYearSelector = ({ value, onChange }) => {
 
   const setMonth = (month) => onChange?.({ ...value, month });
   const setYear = (year) => onChange?.({ ...value, year });
+  const diamondBlue = '#7DAAE1';
+  const graphite = '#101114';
+  const graphiteHover = '#171A1F';
 
   return (
-    <div style={{
-      background: themeTokens.surface,
-      border: `1px solid ${themeTokens.hairline}`,
-      borderRadius: 16,
-      padding: 16,
-      display: 'grid',
-      gap: 14,
-      width: '100%',
-      minWidth: 0,
-      boxSizing: 'border-box',
-    }}>
+    <div
+      className="aurum-card-hover"
+      style={{
+        background: themeTokens.surface,
+        border: `1px solid ${themeTokens.hairline}`,
+        borderRadius: 16,
+        padding: 16,
+        display: 'grid',
+        gap: 14,
+        width: '100%',
+        minWidth: 0,
+        boxSizing: 'border-box',
+        transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
+      }}
+    >
       <InlineCardTitle style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 10,
@@ -66,12 +73,13 @@ export const DashboardMonthYearSelector = ({ value, onChange }) => {
             <button
               key={month.value}
               type="button"
+              className="aurum-card-flash-hover"
               onClick={() => setMonth(month.value)}
               title={month.full}
               style={{
-                border: `1px solid ${active ? themeTokens.accent : themeTokens.hairline2}`,
-                background: active ? themeTokens.accent : 'transparent',
-                color: active ? '#0B0B0D' : themeTokens.textDim,
+                border: `1px solid ${active ? diamondBlue : '#2D3138'}`,
+                background: active ? graphiteHover : graphite,
+                color: active ? '#FFFFFF' : '#D5DAE1',
                 borderRadius: 8,
                 padding: '8px 0',
                 fontFamily: 'var(--font-mono)',
@@ -79,7 +87,11 @@ export const DashboardMonthYearSelector = ({ value, onChange }) => {
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 cursor: 'pointer',
-                transition: 'all 180ms',
+                boxShadow: active ? `0 0 0 2px ${diamondBlue}33` : 'none',
+                transition: 'background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease',
+                '--black-card-base-bg': active ? graphiteHover : graphite,
+                '--black-card-rest-border': active ? diamondBlue : '#2D3138',
+                '--black-card-rest-shadow': active ? `0 0 0 2px ${diamondBlue}33` : 'none',
               }}
             >
               {month.label}

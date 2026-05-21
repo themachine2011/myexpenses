@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Sector } from 'recharts';
 
-export const PIE_CONTINUOUS_SPIN_SECONDS = 75;
+export const PIE_CONTINUOUS_SPIN_SECONDS = 180;
 export const PIE_MANUAL_STEP_DEG = 1;
 export const PIE_MANUAL_SPIN_MS = 100;
 
@@ -15,23 +15,51 @@ const ensurePieRotationStyles = () => {
   style.id = PIE_ROTATION_STYLE_ID;
   style.textContent = `
 @keyframes pieContinuousSpin {
-  from { rotate: 0deg; }
-  to { rotate: 360deg; }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.pie-rotation-root {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+.pie-tilt-layer {
+  width: 100%;
+  transform: rotateX(var(--pie-tilt-x, 0deg)) rotateY(var(--pie-tilt-y, 0deg));
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.pie-rotation-root[data-pie-hovering="true"] .pie-tilt-layer {
+  transition-duration: 120ms;
+}
+
+.pie-rotation-root .recharts-surface {
+  transform-box: fill-box;
+  transform-origin: center center;
+  will-change: transform;
+  animation: pieContinuousSpin var(--pie-continuous-spin-duration, ${PIE_CONTINUOUS_SPIN_SECONDS}s) linear infinite;
+  animation-play-state: var(--pie-rotation-play-state, running);
 }
 
 .pie-rotation-root .recharts-pie {
   transform-box: fill-box;
   transform-origin: center center;
   will-change: transform;
-  animation: pieContinuousSpin var(--pie-continuous-spin-duration, ${PIE_CONTINUOUS_SPIN_SECONDS}s) linear infinite;
-  animation-play-state: var(--pie-rotation-play-state, running);
   transform: rotate(var(--pie-manual-rotation-deg, 0deg));
   transition: transform var(--pie-manual-spin-duration, ${PIE_MANUAL_SPIN_MS}ms) var(--pie-manual-spin-easing, ${PIE_MANUAL_EASING});
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pie-rotation-root .recharts-pie {
+  .pie-rotation-root .recharts-surface {
     animation: none;
+  }
+
+  .pie-rotation-root .recharts-pie,
+  .pie-tilt-layer {
     transition-duration: 50ms;
   }
 }
@@ -99,6 +127,8 @@ export const usePieChartRotation = () => {
   const lastWheelDirectionRef = useRef(0);
   const pendingRotationRef = useRef(0);
   const frameRef = useRef(null);
+  const tiltFrameRef = useRef(null);
+  const tiltTargetRef = useRef({ x: 0, y: 0 });
   const [active, setActive] = useState(false);
   const [rotationDeg, setRotationDeg] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
@@ -147,6 +177,32 @@ export const usePieChartRotation = () => {
     if (frameRef.current == null) frameRef.current = requestAnimationFrame(flushRotation);
   }, [flushRotation]);
 
+  const flushTilt = useCallback(() => {
+    tiltFrameRef.current = null;
+    const el = containerRef.current;
+    if (!el) return;
+    const { x, y } = tiltTargetRef.current;
+    el.style.setProperty('--pie-tilt-x', `${x}deg`);
+    el.style.setProperty('--pie-tilt-y', `${y}deg`);
+  }, []);
+
+  const queueTilt = useCallback((x, y) => {
+    tiltTargetRef.current = { x, y };
+    if (tiltFrameRef.current == null) tiltFrameRef.current = requestAnimationFrame(flushTilt);
+  }, [flushTilt]);
+
+  const handlePointerMove = useCallback((e) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    queueTilt(-py * 18, px * 18);
+  }, [queueTilt]);
+
+  const resetTilt = useCallback(() => {
+    queueTilt(0, 0);
+  }, [queueTilt]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
@@ -192,16 +248,25 @@ export const usePieChartRotation = () => {
   useEffect(() => {
     return () => {
       if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+      if (tiltFrameRef.current != null) cancelAnimationFrame(tiltFrameRef.current);
     };
   }, []);
 
   const containerProps = {
     className: 'pie-rotation-root',
+    'data-pie-hovering': active ? 'true' : 'false',
     onClick: () => setActive(true),
     onPointerEnter: () => setActive(true),
-    onPointerLeave: () => setActive(false),
+    onPointerMove: handlePointerMove,
+    onPointerLeave: () => {
+      setActive(false);
+      resetTilt();
+    },
     onFocus: () => setActive(true),
-    onBlur: () => setActive(false),
+    onBlur: () => {
+      setActive(false);
+      resetTilt();
+    },
     onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') setActive(true); },
     role: 'button',
     tabIndex: 0,
@@ -217,6 +282,9 @@ export const usePieChartRotation = () => {
   return {
     containerRef,
     containerProps,
+    tiltLayerProps: {
+      className: 'pie-tilt-layer',
+    },
     active,
     rotationDeg,
     prefersReducedMotion,

@@ -56,6 +56,7 @@ export const Surface = ({ children, style, onClick, hoverable, delay = 0 }) => {
   const { themeTokens } = useAppContext();
   return (
     <motion.div
+      className="aurum-card-hover"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
