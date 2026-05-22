@@ -128,7 +128,13 @@ export const fmtCurrency = (v, mode = 'BRL', opts = {}) => {
   }
   if (mode === 'USD') {
     const rate = Number(opts?.rate);
-    const usd = (Number.isFinite(rate) && rate > 0) ? (Number(v) || 0) / rate : Number(v) || 0;
+    // FX rate unavailable — fall back to canonical BRL formatting so a R$
+    // value is never mislabeled with $. Matches the Wallet UX which already
+    // disables the USD toggle and shows "FX rate unavailable — BRL only".
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+    }
+    const usd = (Number(v) || 0) / rate;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppContext, useAppState, currentMonthRange } from './context.jsx';
 import { ACCENT_PRESETS, FONT_PAIRS } from './tokens.jsx';
@@ -73,6 +73,13 @@ const App = () => {
   }, []);
   useEffect(() => { setBackupSettings({ intervalDays: tweaks.backupIntervalDays }); }, [tweaks.backupIntervalDays]);
   useAutoBackup(state);
+
+  // Stable callback for GlassTheme. Its effect has `setTheme` in its deps, so
+  // passing a fresh arrow function every render would re-fire the effect and
+  // call `setTweak('theme', next)` again. `setTweak`'s reducer always returns
+  // a new object reference even when the value is unchanged, which would loop
+  // until React's update-depth guard tripped (`Maximum update depth exceeded`).
+  const handleSetGlassTheme = useCallback((v) => setTweak('theme', v), [setTweak]);
 
   const [loaderShown, setLoaderShown] = useState(false);
   const [loaderDone, setLoaderDone]   = useState(true);
@@ -190,7 +197,7 @@ const App = () => {
         position: 'relative',
       }}>
 
-        <GlassTheme tk={tk} setTheme={(v) => setTweak('theme', v)} />
+        <GlassTheme tk={tk} setTheme={handleSetGlassTheme} />
 
         <ParticleField />
 
