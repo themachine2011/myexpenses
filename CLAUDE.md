@@ -208,4 +208,60 @@ Both bubbles must follow the current Dashboard style, theme system, dark mode, l
 
 37. Rules 36 and 37 must not repeat the information displayed in 10 bubbles in a row. Must display new information sequently. Only bubble 11 can repeat information displayed in bubble one if no applicable or logic suggestions are considered to display. 
 
+---
+
+## Project context
+
+Aurum — personal finance dashboard. Single-page React + Vite app, no backend, all
+data in `localStorage`. Brazilian Real is the canonical storage currency; USD is
+display-only via live FX rate.
+
+### Commands
+- `npm run dev` — Vite dev server on port 5174
+- `npm run build` — production build to `dist/`
+- `npm run preview` — preview the built bundle
+
+No test runner, no linter, no typecheck — verify changes by running the app.
+
+### Architecture
+- `src/main.jsx` → `src/App.jsx` (shell + header + nav + Tweaks panel)
+- `src/context.jsx` — `useAppState()` returns the entire app state object;
+  exposed via `AppContext`. All CRUD, all derived selectors, all persistence
+  hooks live here. ~918 lines, single source of truth.
+- `src/pages.jsx` — every page component (Dashboard, Graphs, Cards, Net Worth,
+  Triumph, Ledger, Transactions, etc.) in one ~5,200-line file.
+- `src/tokens.jsx` — themes (Onyx/Ivory/Cream), accent presets, font pairs,
+  `fmtCurrency(v, mode, { rate })`.
+- `src/charts.jsx` — Recharts wrappers (AreaSpark, ExpensePie, ComposedFlow…).
+- `src/2026-05-18-fx-rate-service.js` — AwesomeAPI USD/BRL fetch + 30-min
+  localStorage cache. Picks `Math.min(bid, ask, high, low)` per rule #26.
+- `src/2026-05-16-utils-storage-write-guard.jsx` — `useStoredState(key, init)`
+  wraps useState + safeRead/safeWrite + migration runner.
+- `src/2026-05-16-utils-schema-migrations.js` — versioned storage envelope
+  `{ __v, data }`. Bump `CURRENT_VERSIONS[key]` + add `MIGRATIONS[key][n]` fn
+  to evolve a stored shape.
+
+### File-naming convention
+New features land in dated files: `YYYY-MM-DD-<kind>-<name>.{js,jsx}` where
+`<kind>` is `component`, `utils`, `logic`, `hook`, `feature`, or `backup`.
+Example: `src/2026-05-18-component-dashboard-calculator.jsx`. Edit existing
+files when possible; only create a new dated file for a meaningfully new
+feature.
+
+### State & persistence keys
+All keys are prefixed `aurum.*`. Notable: `aurum.tx.v2` (transactions),
+`aurum.rules.v1` (auto-categorize), `aurum.recurring.v1`, `aurum.budgets.v1`,
+`aurum.goals.v1`, `aurum.debts.v1`, `aurum.reminders.v1`,
+`aurum.networth.history.v1`, `aurum.categoryColors.v1`, `aurum.fx.v1`.
+
+### Styling
+Inline styles only — no Tailwind, no CSS modules. Read colors/fonts from
+`state.themeTokens` (`tk.canvas`, `tk.text`, `tk.accent`, `tk.hairline`…) and
+`state.fonts` (`fonts.display`, `fonts.body`, `fonts.mono`). Global CSS vars
+are injected from `App.jsx` so child components can use `var(--font-mono)` etc.
+
+### Currency formatting
+Never call `fmtCurrency` directly from a component — use `state.fmt(value)`
+from context. It auto-applies the current mode (`BRL` | `USD` | `compact`) and
+the live FX rate.
 
