@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppContext, useAppState, currentMonthRange } from './context.jsx';
 import { ACCENT_PRESETS, FONT_PAIRS } from './tokens.jsx';
+import { formatAge } from './2026-05-18-fx-rate-service.js';
 import { AurumLoader, AurumToken3D } from './loader.jsx';
 import {
   Dashboard, GraphPage, CardsPage, NetWorthPage,
@@ -222,13 +223,77 @@ const App = () => {
                 fontFamily: fonts.display, fontWeight: 700, fontSize: 28,
                 color: tk.text, letterSpacing: '-0.01em'
               }}>Wallet</div>
-              <div style={{
-                fontFamily: 'var(--font-mono)', fontSize: 18,
-                color: balance >= 0 ? tk.positive : tk.negative,
-                letterSpacing: '0.02em'
-              }}>
-                {balance >= 0 ? '+' : '−'}{state.fmt(Math.abs(balance))}
-              </div>
+              {(() => {
+                // Wallet click-flip BRL ↔ USD (CLAUDE.md rule #26).
+                const cur = state.currency;
+                const fxOk = state.fxStatus === 'ok' || (state.fxRate && state.fxStatus !== 'idle');
+                const fxDisabled = !state.fxRate;
+                const inCompact = cur === 'compact';
+                const tooltip = inCompact
+                  ? 'Compact mode is active — switch Currency in Tweaks to use BRL ↔ USD'
+                  : fxDisabled
+                    ? 'FX rate unavailable — BRL only. Will retry automatically.'
+                    : `Live rate (AwesomeAPI · min bid/low): 1 USD = R$ ${state.fxRate.toFixed(4)} · refreshed ${formatAge(state.fxFetchedAt)}${state.fxStatus === 'error' ? ' · using cached' : ''}`;
+                const onFlipBank = () => {
+                  if (inCompact || fxDisabled) return;
+                  state.flipDisplayCurrency();
+                };
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onFlipBank}
+                      title={tooltip}
+                      disabled={inCompact || fxDisabled}
+                      style={{
+                        background: 'transparent', border: 'none', padding: 0,
+                        fontFamily: 'var(--font-mono)', fontSize: 18,
+                        color: balance >= 0 ? tk.positive : tk.negative,
+                        letterSpacing: '0.02em',
+                        cursor: (inCompact || fxDisabled) ? 'not-allowed' : 'pointer',
+                        opacity: (inCompact || fxDisabled) ? 0.75 : 1,
+                      }}>
+                      {balance >= 0 ? '+' : '−'}{state.fmt(Math.abs(balance))}
+                    </button>
+                    <div title={tooltip} style={{
+                      display: 'inline-flex', alignItems: 'stretch',
+                      borderRadius: 999, overflow: 'hidden',
+                      border: `1px solid ${tk.hairline2}`,
+                      opacity: inCompact ? 0.4 : 1,
+                    }}>
+                      {[
+                        { id: 'BRL', label: 'R$' },
+                        { id: 'USD', label: '$' },
+                      ].map((opt) => {
+                        const active = cur === opt.id;
+                        const disabled = inCompact || (opt.id === 'USD' && fxDisabled);
+                        const onClick = () => {
+                          if (disabled) return;
+                          if (active) return;
+                          state.flipDisplayCurrency();
+                        };
+                        return (
+                          <button key={opt.id}
+                            type="button"
+                            onClick={onClick}
+                            disabled={disabled}
+                            title={tooltip}
+                            style={{
+                              padding: '3px 8px',
+                              border: 'none',
+                              background: active ? tk.accent : 'transparent',
+                              color: active ? (tk.isDark ? '#0B0B0D' : '#FFFFFF') : tk.textDim,
+                              fontFamily: 'var(--font-mono)', fontSize: 10,
+                              letterSpacing: '0.18em', textTransform: 'uppercase',
+                              cursor: disabled ? 'not-allowed' : (active ? 'default' : 'pointer'),
+                              transition: 'background 180ms, color 180ms',
+                            }}>{opt.label}</button>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <GlobalSearch />

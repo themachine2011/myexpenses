@@ -107,7 +107,17 @@ export const FONT_PAIRS = {
   },
 };
 
-export const fmtCurrency = (v, mode = 'BRL') => {
+// Currency formatter.
+//   v     - numeric value, ALWAYS stored in BRL (canonical storage)
+//   mode  - 'BRL' | 'USD' | 'compact'
+//   opts  - { rate } — USD-to-BRL exchange rate. When `mode === 'USD'` and a
+//           finite positive rate is supplied, the BRL value is converted to
+//           USD (usd = brl / rate) and formatted as $1,234.56. When mode is
+//           'USD' without a rate, falls back to the en-US currency format of
+//           the raw BRL number (back-compat — every call site is going via
+//           context.fmt now, which always passes the rate, so this branch is
+//           only reached if a caller forgets to use it).
+export const fmtCurrency = (v, mode = 'BRL', opts = {}) => {
   if (v == null || isNaN(v)) v = 0;
   if (mode === 'compact') {
     const abs = Math.abs(v);
@@ -117,7 +127,14 @@ export const fmtCurrency = (v, mode = 'BRL') => {
     return `${sign}R$ ${Math.round(abs)}`;
   }
   if (mode === 'USD') {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
+    const rate = Number(opts?.rate);
+    const usd = (Number.isFinite(rate) && rate > 0) ? (Number(v) || 0) / rate : Number(v) || 0;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(usd);
   }
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 };

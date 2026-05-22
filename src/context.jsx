@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { FONT_PAIRS, buildTokens, fmtCurrency } from './tokens.jsx';
 import { useStoredState, safeRead, safeWrite } from './2026-05-16-utils-storage-write-guard.jsx';
+import { fetchUsdBrlRate, readCachedRate, writeCachedRate, RATE_TTL_MS } from './2026-05-18-fx-rate-service.js';
 import { validateTransaction, validatePatch } from './2026-05-16-utils-transaction-form-validation.js';
 import { findDuplicate, partitionDuplicates, buildDuplicateIndex } from './2026-05-17-utils-duplicate-detection.js';
 import {
@@ -439,6 +440,53 @@ export const useAppState = () => {
   const [currency, setCurrency] = useState('BRL');
   const [view, setView]         = useState('dashboard');
 
+  // ----- Live USD/BRL FX rate for the Wallet click-toggle (rule #26) -------
+  // - Storage stays in BRL. `fxRate` only affects DISPLAY when currency='USD'.
+  // - Initial value hydrates from the localStorage cache so the USD toggle is
+  //   immediately usable on cold start, then the live fetch refreshes it.
+  // - Fetch is re-tried every RATE_TTL_MS (30 min).
+  const [fxRate, setFxRate]           = useState(() => readCachedRate()?.rate ?? null);
+  const [fxBundle, setFxBundle]       = useState(() => readCachedRate());
+  const [fxStatus, setFxStatus]       = useState(() => readCachedRate() ? 'ok' : 'idle');
+  const [fxFetchedAt, setFxFetchedAt] = useState(() => readCachedRate()?.fetchedAt ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (cancelled) return;
+      setFxStatus((prev) => (prev === 'ok' ? 'ok' : 'loading'));
+      const result = await fetchUsdBrlRate();
+      if (cancelled) return;
+      if (result.ok) {
+        setFxRate(result.rate);
+        setFxBundle({
+          rate: result.rate, bid: result.bid, ask: result.ask,
+          high: result.high, low: result.low, fetchedAt: result.fetchedAt,
+        });
+        setFxFetchedAt(result.fetchedAt);
+        setFxStatus('ok');
+        writeCachedRate({
+          rate: result.rate, bid: result.bid, ask: result.ask,
+          high: result.high, low: result.low, fetchedAt: result.fetchedAt,
+        });
+      } else {
+        setFxStatus('error');
+      }
+    };
+    run();
+    const id = setInterval(run, RATE_TTL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Click-flip BRL ↔ USD. No-op when the user has Compact selected — Compact
+  // is a separate Tweaks-panel power-user mode that owns the formatter.
+  const flipDisplayCurrency = () => {
+    setCurrency((prev) => {
+      if (prev === 'compact') return prev;
+      return prev === 'USD' ? 'BRL' : 'USD';
+    });
+  };
+
   const [transactions, setTransactions] = useStoredState(TX_KEY, () => seedTransactions());
 
   // One-shot migration: enforce paid/pending status on Triumph installments
@@ -838,7 +886,13 @@ export const useAppState = () => {
     setCategoryColor,
     resetCategoryColor,
     resetAllCategoryColors,
-    fmt: (v) => fmtCurrency(v, currency),
+    fmt: (v) => fmtCurrency(v, currency, { rate: fxRate }),
+    // Wallet BRL ↔ USD live FX (rule #26).
+    fxRate,
+    fxStatus,
+    fxFetchedAt,
+    fxBundle,
+    flipDisplayCurrency,
     computeBankBalance: (opts) => computeBankBalance(transactions, opts),
     computeAvailableCash: (opts) => computeAvailableCash(transactions, opts),
 

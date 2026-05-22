@@ -122,7 +122,11 @@ export const CardVisual = ({ type }) => (
     }} />
 );
 
-const CardBack = ({ total, last4, name }) => (
+const CardBack = ({ total, last4, name }) => {
+  // Use the context-bound `fmt` so the back face follows the global BRL/USD
+  // wallet toggle. Previously hardcoded to BRL.
+  const { fmt } = useAppContext();
+  return (
   <div style={{
     width: '100%', aspectRatio: '1.586 / 1', borderRadius: 20,
     background: '#FFFFFF', color: '#000',
@@ -143,14 +147,15 @@ const CardBack = ({ total, last4, name }) => (
       <div style={{
         fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 44,
         color: '#000', letterSpacing: '-0.02em', lineHeight: 1,
-      }}>{fmtCurrency(total, 'BRL')}</div>
+      }}>{fmt(total)}</div>
     </div>
     <div style={{
       fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.4em',
       textTransform: 'uppercase', color: '#000', opacity: 0.6,
     }}>Tap to flip · Hover to tilt</div>
   </div>
-);
+  );
+};
 
 const FlipTiltCard = ({ children, back }) => {
   const wrapRef = useRef(null);
