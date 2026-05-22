@@ -1794,6 +1794,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
         <script>
           const rows = ${rowsJson};
           const today = new Date();
+          today.setHours(23, 59, 59, 999);
           const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
           const filterBox = document.getElementById('filters');
@@ -1848,7 +1849,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
             const date = new Date(row.date);
             return '<tr class="' + cls + '">' +
               '<td>' + escapeText(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })) + '</td>' +
-              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(categoryLabel(row.category)) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
+              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(row.category) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
               '<td>' + escapeText(row.installment) + '</td>' +
               '<td>' + label + '</td>' +
               '<td class="amount">' + escapeText(row.amountLabel) + '</td>' +
@@ -1891,15 +1892,26 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
 const createCardPurchasesUrl = (args) =>
   URL.createObjectURL(new Blob([buildCardPurchasesHtml(args)], { type: 'text/html;charset=utf-8' }));
 
-// Opens the in-app CardPurchasesPage in a new browser tab by reopening the
-// SPA with `?card=<method>&view=cardPurchases`. App.jsx bootstraps the focused
-// card + view from those params on mount.
-const CardRecentPurchasesLink = ({ card, themeTokens }) => {
+const openCardPurchasesWindow = (args) => {
+  const html = buildCardPurchasesHtml(args);
+  const opened = window.open('', '_blank');
+  if (opened) {
+    opened.document.open();
+    opened.document.write(html);
+    opened.document.close();
+    opened.focus?.();
+    return;
+  }
+  const url = createCardPurchasesUrl(args);
+  window.open(url, '_blank');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
+const CardRecentPurchasesLink = ({ card, rows, fmt, themeTokens }) => {
   const handleClick = (e) => {
     e.preventDefault();
     try {
-      const url = `${window.location.origin}${window.location.pathname}?card=${encodeURIComponent(card.method)}&view=cardPurchases`;
-      window.open(url, '_blank', 'noopener,noreferrer');
+      openCardPurchasesWindow({ card, rows, fmt });
     } catch (_) {}
   };
   return (
@@ -1948,7 +1960,7 @@ export const CardsPage = () => {
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${themeTokens.hairline}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
               <Eyebrow>Recent on this card</Eyebrow>
-              <CardRecentPurchasesLink card={c} themeTokens={themeTokens} />
+              <CardRecentPurchasesLink card={c} rows={cardRows} fmt={fmt} themeTokens={themeTokens} />
             </div>
             {(c.stats?.txs || []).slice(0, 4).map((tx) =>
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
@@ -1974,8 +1986,8 @@ export const CardPurchasesPage = () => {
     focusedCardMethod, setFocusedCardMethod, setView,
   } = useAppContext();
 
-  // 30D / 60D / 90D / custom — defaults to 30D.
-  const [filterKind, setFilterKind] = useState('30');
+  // Current month + future by default; historical filters still include future rows.
+  const [filterKind, setFilterKind] = useState('currentFuture');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo,   setCustomTo]   = useState('');
 
@@ -1997,6 +2009,9 @@ export const CardPurchasesPage = () => {
   // regardless of "last N days" — those filters only narrow the *historical*
   // window so the user can still see upcoming scheduled installments.
   const range = useMemo(() => {
+    if (filterKind === 'currentFuture') {
+      return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null, includeFuture: true };
+    }
     if (filterKind === 'custom') {
       const from = customFrom ? new Date(customFrom + 'T00:00:00') : null;
       const to   = customTo   ? new Date(customTo   + 'T23:59:59') : null;
@@ -2128,6 +2143,7 @@ export const CardPurchasesPage = () => {
       <Surface>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Eyebrow>Filter</Eyebrow>
+          <button style={chipStyle(filterKind === 'currentFuture')} onClick={() => setFilterKind('currentFuture')}>Current + Future</button>
           <button style={chipStyle(filterKind === '30')}  onClick={() => setFilterKind('30')}>Last 30 days</button>
           <button style={chipStyle(filterKind === '60')}  onClick={() => setFilterKind('60')}>Last 60 days</button>
           <button style={chipStyle(filterKind === '90')}  onClick={() => setFilterKind('90')}>Last 90 days</button>
