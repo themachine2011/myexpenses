@@ -8,6 +8,7 @@ import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
 import { CardExplanationButton } from './card-explanations.jsx';
+import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1794,6 +1795,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
         <script>
           const rows = ${rowsJson};
           const today = new Date();
+          today.setHours(23, 59, 59, 999);
           const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
           const filterBox = document.getElementById('filters');
@@ -1848,7 +1850,7 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
             const date = new Date(row.date);
             return '<tr class="' + cls + '">' +
               '<td>' + escapeText(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })) + '</td>' +
-              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(categoryLabel(row.category)) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
+              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(row.category) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
               '<td>' + escapeText(row.installment) + '</td>' +
               '<td>' + label + '</td>' +
               '<td class="amount">' + escapeText(row.amountLabel) + '</td>' +
@@ -1891,15 +1893,26 @@ const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
 const createCardPurchasesUrl = (args) =>
   URL.createObjectURL(new Blob([buildCardPurchasesHtml(args)], { type: 'text/html;charset=utf-8' }));
 
-// Opens the in-app CardPurchasesPage in a new browser tab by reopening the
-// SPA with `?card=<method>&view=cardPurchases`. App.jsx bootstraps the focused
-// card + view from those params on mount.
-const CardRecentPurchasesLink = ({ card, themeTokens }) => {
+const openCardPurchasesWindow = (args) => {
+  const html = buildCardPurchasesHtml(args);
+  const opened = window.open('', '_blank');
+  if (opened) {
+    opened.document.open();
+    opened.document.write(html);
+    opened.document.close();
+    opened.focus?.();
+    return;
+  }
+  const url = createCardPurchasesUrl(args);
+  window.open(url, '_blank');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
+const CardRecentPurchasesLink = ({ card, rows, fmt, themeTokens }) => {
   const handleClick = (e) => {
     e.preventDefault();
     try {
-      const url = `${window.location.origin}${window.location.pathname}?card=${encodeURIComponent(card.method)}&view=cardPurchases`;
-      window.open(url, '_blank', 'noopener,noreferrer');
+      openCardPurchasesWindow({ card, rows, fmt });
     } catch (_) {}
   };
   return (
@@ -1923,6 +1936,11 @@ const CardRecentPurchasesLink = ({ card, themeTokens }) => {
 
 export const CardsPage = () => {
   const { ccStats, themeTokens, fmt } = useAppContext();
+  // Scroll-velocity-driven blur on the VISA/Nubank card visuals only.
+  // The hook returns 0..1; we multiply by a small peak so the effect is a
+  // subtle glass-drift, not a smear. Honors prefers-reduced-motion internally.
+  const blurIntensity = useScrollVelocityBlur();
+  const PEAK_BLUR_PX  = 4;
   const cards = [
     { name: 'Mercado Pago', last4: '4731', type: 'visa', method: 'VISA Mercado Pago', stats: ccStats['VISA Mercado Pago'] },
     { name: 'Nubank',       last4: '8129', type: 'mastercard', method: 'Nubank MasterCard', stats: ccStats['Nubank MasterCard'] }
@@ -1938,17 +1956,32 @@ export const CardsPage = () => {
         <motion.div key={i}
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}>
-          <FlipTiltCard
-            back={<CardBack total={c.stats?.total || 0} last4={c.last4} name={c.name} />}>
-            <CardVisual type={c.type} />
-          </FlipTiltCard>
+          {/* Blur wrapper: scoped to the FlipTiltCard so the PaymentPanel and
+              recent-transactions list below remain crisp and readable while
+              the card visual itself drifts with scroll velocity. The faint
+              diamond-blue inset ring is the rule-34 unique accent — it only
+              shows up at peak intensity, then fades back to transparent. */}
+          <div style={{
+            borderRadius: 20,
+            filter: blurIntensity > 0 ? `blur(${blurIntensity * PEAK_BLUR_PX}px)` : 'none',
+            boxShadow: blurIntensity > 0
+              ? `inset 0 0 0 1px rgba(125, 170, 225, ${blurIntensity * 0.35})`
+              : 'none',
+            transition: 'box-shadow 180ms ease',
+            willChange: blurIntensity > 0 ? 'filter' : 'auto',
+          }}>
+            <FlipTiltCard
+              back={<CardBack total={c.stats?.total || 0} last4={c.last4} name={c.name} />}>
+              <CardVisual type={c.type} />
+            </FlipTiltCard>
+          </div>
 
           <PaymentPanel current={c.stats?.current || 0} future={c.stats?.future || 0} />
 
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${themeTokens.hairline}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
               <Eyebrow>Recent on this card</Eyebrow>
-              <CardRecentPurchasesLink card={c} themeTokens={themeTokens} />
+              <CardRecentPurchasesLink card={c} rows={cardRows} fmt={fmt} themeTokens={themeTokens} />
             </div>
             {(c.stats?.txs || []).slice(0, 4).map((tx) =>
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
@@ -1974,8 +2007,8 @@ export const CardPurchasesPage = () => {
     focusedCardMethod, setFocusedCardMethod, setView,
   } = useAppContext();
 
-  // 30D / 60D / 90D / custom — defaults to 30D.
-  const [filterKind, setFilterKind] = useState('30');
+  // Current month + future by default; historical filters still include future rows.
+  const [filterKind, setFilterKind] = useState('currentFuture');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo,   setCustomTo]   = useState('');
 
@@ -1997,6 +2030,9 @@ export const CardPurchasesPage = () => {
   // regardless of "last N days" — those filters only narrow the *historical*
   // window so the user can still see upcoming scheduled installments.
   const range = useMemo(() => {
+    if (filterKind === 'currentFuture') {
+      return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null, includeFuture: true };
+    }
     if (filterKind === 'custom') {
       const from = customFrom ? new Date(customFrom + 'T00:00:00') : null;
       const to   = customTo   ? new Date(customTo   + 'T23:59:59') : null;
@@ -2128,6 +2164,7 @@ export const CardPurchasesPage = () => {
       <Surface>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Eyebrow>Filter</Eyebrow>
+          <button style={chipStyle(filterKind === 'currentFuture')} onClick={() => setFilterKind('currentFuture')}>Current + Future</button>
           <button style={chipStyle(filterKind === '30')}  onClick={() => setFilterKind('30')}>Last 30 days</button>
           <button style={chipStyle(filterKind === '60')}  onClick={() => setFilterKind('60')}>Last 60 days</button>
           <button style={chipStyle(filterKind === '90')}  onClick={() => setFilterKind('90')}>Last 90 days</button>

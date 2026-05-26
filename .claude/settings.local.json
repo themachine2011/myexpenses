@@ -22,7 +22,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(gh api *)",
-      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies?.react || require\\('./package.json'\\).devDependencies?.react\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies?.react || require\\('./package.json'\\).devDependencies?.react\\)\")",
+      "Bash(git fetch *)"
     ]
   }
 }
