@@ -8,15 +8,17 @@
 // MIGRATIONS[key][previousVersion] = (oldData) => newData.
 
 export const CURRENT_VERSIONS = {
-  'aurum.tx.v2':               2,
-  'aurum.rules.v1':            1,
-  'aurum.recurring.v1':        1,
-  'aurum.budgets.v1':          1,
-  'aurum.goals.v1':            1,
-  'aurum.debts.v1':            1,
-  'aurum.reminders.v1':        1,
-  'aurum.networth.history.v1': 1,
-  'aurum.backup.settings.v1':  1,
+  'aurum.tx.v2':                2,
+  'aurum.rules.v1':             1,
+  'aurum.recurring.v1':         1,
+  'aurum.budgets.v1':           1,
+  'aurum.goals.v1':             1,
+  'aurum.debts.v1':             1,
+  'aurum.reminders.v1':         1,
+  'aurum.networth.history.v1':  1,
+  'aurum.backup.settings.v1':   1,
+  'aurum.glassTheme.design.v2': 1,
+  'aurum.glassTheme.mode.v2':   1,
 };
 
 // Each entry maps storageKey -> { fromVersion: upgradeFn }.
@@ -53,6 +55,19 @@ export const MIGRATIONS = {
   'aurum.reminders.v1':        { 0: (d) => d },
   'aurum.networth.history.v1': { 0: (d) => d },
   'aurum.backup.settings.v1':  { 0: (d) => d },
+
+  // Glass-theme enums: validate the stored value against the allowed set and
+  // fall back to default if it's anything else (handles stale values left
+  // over from earlier versions of the component).
+  // NOTE: keep the design list in sync with DESIGN_ORDER in
+  // src/2026-05-20-component-glass-theme.jsx — if you add a new design there,
+  // add it here too so the migration doesn't reset it to 'A'.
+  'aurum.glassTheme.design.v2': {
+    0: (d) => (['A', 'B', 'C', 'D', 'E', 'F'].includes(d) ? d : 'A'),
+  },
+  'aurum.glassTheme.mode.v2': {
+    0: (d) => (['auto', 'day', 'night'].includes(d) ? d : 'auto'),
+  },
 };
 
 const isWrapped = (parsed) =>
