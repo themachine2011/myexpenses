@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useStoredState } from './2026-05-16-utils-storage-write-guard.jsx';
 import FoggyGlassCanvas from './2026-05-25-component-foggy-glass-canvas.jsx';
+import LiquidChromeCanvas from './2026-05-25-component-liquid-chrome-canvas.jsx';
+import MeshGradientCanvas from './2026-05-25-component-mesh-gradient-canvas.jsx';
 
 const STORAGE_DESIGN = 'aurum.glassTheme.design.v2';
 const STORAGE_MODE   = 'aurum.glassTheme.mode.v2';
@@ -245,15 +246,83 @@ const DESIGNS = {
       tintOverlay: 'rgba(10,14,22,0.18)',
     },
   },
+
+  // =========================================================================
+  // G — Liquid Chrome
+  // Full-viewport WebGL chrome shader is mounted on top by <LiquidChromeCanvas/>
+  // when design === 'G'. The `bg` value here is only a fallback that shows
+  // through the slight blur margin around the canvas (and acts as the safety
+  // net if WebGL fails to initialize). Cards are dark translucent glass so
+  // light text from the onyx theme reads cleanly over the steel-tone surface.
+  // =========================================================================
+  G: {
+    name: 'Liquid Chrome',
+    swatch: '#B8BCC4',
+    day: {
+      bg: `
+        radial-gradient(ellipse 65% 55% at 50% 30%, rgba(180,188,200,0.45), transparent 70%),
+        linear-gradient(135deg, #2A2E36 0%, #1A1D22 50%, #0E1014 100%)
+      `,
+      cardBg: 'rgba(28, 32, 40, 0.52)',
+      cardBorder: 'rgba(200, 210, 222, 0.34)',
+      cardShadow: '0 20px 48px rgba(0,0,0,0.50), inset 0 1px 0 rgba(220,228,240,0.22), inset 0 0 0 1px rgba(220,228,240,0.10)',
+      tintOverlay: 'rgba(12,14,18,0.16)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 65% 55% at 50% 30%, rgba(140,150,165,0.36), transparent 70%),
+        linear-gradient(135deg, #16181E 0%, #0C0E12 50%, #06070A 100%)
+      `,
+      cardBg: 'rgba(18, 20, 26, 0.58)',
+      cardBorder: 'rgba(190, 200, 215, 0.28)',
+      cardShadow: '0 20px 48px rgba(0,0,0,0.60), inset 0 1px 0 rgba(210,218,232,0.18), inset 0 0 0 1px rgba(210,218,232,0.08)',
+      tintOverlay: 'rgba(6,8,12,0.22)',
+    },
+  },
+
+  // =========================================================================
+  // H — Mesh Gradient
+  // Full-viewport WebGL colored-blob shader mounted by <MeshGradientCanvas/>
+  // when design === 'H'. Cards are light glass by day (cream theme), dark
+  // glass by night (onyx theme), each tuned to read over a vivid surface.
+  // =========================================================================
+  H: {
+    name: 'Mesh Gradient',
+    swatch: '#C26EA8',
+    day: {
+      bg: `
+        radial-gradient(ellipse 80% 60% at 30% 30%, rgba(220,110,150,0.32), transparent 70%),
+        radial-gradient(ellipse 70% 55% at 75% 70%, rgba(100,150,230,0.32), transparent 70%),
+        linear-gradient(135deg, #1A1530 0%, #221A38 50%, #100C20 100%)
+      `,
+      cardBg: 'rgba(255, 255, 255, 0.52)',
+      cardBorder: 'rgba(255, 255, 255, 0.42)',
+      cardShadow: '0 22px 50px rgba(40, 20, 60, 0.32), inset 0 1px 0 rgba(255,255,255,0.65), inset 0 0 0 1px rgba(255,255,255,0.28)',
+      tintOverlay: 'rgba(255,255,255,0.06)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 80% 60% at 30% 30%, rgba(180,80,120,0.30), transparent 70%),
+        radial-gradient(ellipse 70% 55% at 75% 70%, rgba(70,110,180,0.30), transparent 70%),
+        linear-gradient(135deg, #0E0B1C 0%, #150F25 50%, #080612 100%)
+      `,
+      cardBg: 'rgba(28, 24, 50, 0.55)',
+      cardBorder: 'rgba(210, 190, 240, 0.30)',
+      cardShadow: '0 22px 50px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(220,200,255,0.18), inset 0 0 0 1px rgba(220,200,255,0.08)',
+      tintOverlay: 'rgba(10,8,20,0.20)',
+    },
+  },
 };
 
-const DESIGN_ORDER = ['A', 'B', 'C', 'D', 'E', 'F'];
+const DESIGN_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const MODE_ORDER   = ['auto', 'day', 'night'];
 
 // Which underlying app theme (`cream` = light, `onyx` = dark) pairs with each
 // glass design + day/night combo, so text always has contrast with the bg.
 // Pure White (A) is always light. Liquid Onyx (B) is always dark. Cream (C)
 // and Crystal Frost (D) flip with day/night.
+// Liquid Chrome (G) is always dark (steel tones — light text). Mesh Gradient
+// (H) flips with day/night the same way C/D do.
 const APP_THEME_FOR_GLASS = {
   A: { day: 'cream', night: 'cream' },
   B: { day: 'onyx',  night: 'onyx'  },
@@ -261,6 +330,8 @@ const APP_THEME_FOR_GLASS = {
   D: { day: 'cream', night: 'onyx'  },
   E: { day: 'cream', night: 'onyx'  },
   F: { day: 'cream', night: 'onyx'  },
+  G: { day: 'onyx',  night: 'onyx'  },
+  H: { day: 'cream', night: 'onyx'  },
 };
 
 const isClockDay = () => {
@@ -269,18 +340,27 @@ const isClockDay = () => {
 };
 
 export function useGlassTheme() {
-  // Reads + writes go through the project's versioned storage envelope
-  // (see CURRENT_VERSIONS / MIGRATIONS entries in
-  // src/2026-05-16-utils-schema-migrations.js). The migration table validates
-  // stored values and falls back to defaults if they're invalid.
-  const [design, setDesign]     = useStoredState(STORAGE_DESIGN, 'A');
-  const [override, setOverride] = useStoredState(STORAGE_MODE, 'auto');
+  const [design, setDesign] = useState(() => {
+    try { return localStorage.getItem(STORAGE_DESIGN) || 'A'; }
+    catch { return 'A'; }
+  });
+  const [override, setOverride] = useState(() => {
+    try { return localStorage.getItem(STORAGE_MODE) || 'auto'; }
+    catch { return 'auto'; }
+  });
   const [clockDay, setClockDay] = useState(isClockDay);
 
   useEffect(() => {
     const id = setInterval(() => setClockDay(isClockDay()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_DESIGN, design); } catch (_) {}
+  }, [design]);
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_MODE, override); } catch (_) {}
+  }, [override]);
 
   const effectiveMode = override === 'auto' ? (clockDay ? 'day' : 'night') : override;
 
@@ -498,6 +578,13 @@ function GlassBackdrop({ glass }) {
           linear-gradient(0deg,   rgba(0,0,0,0.10)   0%, transparent 30%);
       }
 
+      /* For designs G + H, the full-viewport WebGL canvas already provides the
+         entire image, so the sheen overlay would just wash it out. Hide it. */
+      html[data-glass-active="true"][data-glass-design="G"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="H"] .aurum-glass-bg-sheen {
+        display: none;
+      }
+
       /* Slim, glass-themed scrollbar so it blends in. */
       html[data-glass-active="true"] ::-webkit-scrollbar-thumb {
         background: var(--glass-card-border);
@@ -512,6 +599,18 @@ function GlassBackdrop({ glass }) {
       <div className="aurum-glass-bg-sheen" aria-hidden="true" />
       {glass.design === 'F' && (
         <FoggyGlassCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'G' && (
+        <LiquidChromeCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'H' && (
+        <MeshGradientCanvas
           mode={glass.effectiveMode}
           aria-hidden="true"
         />
@@ -605,7 +704,7 @@ function GlassControlButtons({ glass, tk }) {
         <ModeIcon mode={glass.mode} effective={glass.effectiveMode} />
       </button>
 
-      {/* Design picker: A → B → C → D → A */}
+      {/* Design picker: A → B → C → D → E → F → G → H → A */}
       <button
         onClick={glass.cycleDesign}
         aria-label={`Glass design: ${glass.design} — ${glass.meta.name}`}
