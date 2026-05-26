@@ -143,11 +143,16 @@ function startEngine(canvas, getMode) {
   const ctx = canvas.getContext('2d');
   const SPRITE_R = 32;
   const sprite = document.createElement('canvas');
+  // Tracks which mode the cached sprite was painted for, so the animation
+  // loop can detect a day/night switch and trigger a rebuild without needing
+  // a window resize.
+  let spriteMode = null;
   let W = 0, H = 0, DPR = 1;
 
   const rand = (a, b) => a + Math.random() * (b - a);
 
   function rebuildSprite(mode) {
+    spriteMode = mode;
     const px = SPRITE_R * 2 * DPR;
     sprite.width = px; sprite.height = px;
     const s = sprite.getContext('2d');
@@ -293,6 +298,11 @@ function startEngine(canvas, getMode) {
   function tick(now) {
     if (stopped) return;
     if (paused) { rafId = requestAnimationFrame(tick); last = now; return; }
+
+    // Rebuild the cached droplet sprite if day/night has flipped — otherwise
+    // drops keep drawing with the old mode's palette until a window resize.
+    const currentMode = getMode();
+    if (currentMode !== spriteMode) rebuildSprite(currentMode);
 
     const elapsed = now - last; last = now;
     accumFrame += elapsed;
