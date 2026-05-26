@@ -8,6 +8,7 @@ import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
 import { CardExplanationButton } from './card-explanations.jsx';
+import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1935,6 +1936,11 @@ const CardRecentPurchasesLink = ({ card, rows, fmt, themeTokens }) => {
 
 export const CardsPage = () => {
   const { ccStats, themeTokens, fmt } = useAppContext();
+  // Scroll-velocity-driven blur on the VISA/Nubank card visuals only.
+  // The hook returns 0..1; we multiply by a small peak so the effect is a
+  // subtle glass-drift, not a smear. Honors prefers-reduced-motion internally.
+  const blurIntensity = useScrollVelocityBlur();
+  const PEAK_BLUR_PX  = 4;
   const cards = [
     { name: 'Mercado Pago', last4: '4731', type: 'visa', method: 'VISA Mercado Pago', stats: ccStats['VISA Mercado Pago'] },
     { name: 'Nubank',       last4: '8129', type: 'mastercard', method: 'Nubank MasterCard', stats: ccStats['Nubank MasterCard'] }
@@ -1950,10 +1956,25 @@ export const CardsPage = () => {
         <motion.div key={i}
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}>
-          <FlipTiltCard
-            back={<CardBack total={c.stats?.total || 0} last4={c.last4} name={c.name} />}>
-            <CardVisual type={c.type} />
-          </FlipTiltCard>
+          {/* Blur wrapper: scoped to the FlipTiltCard so the PaymentPanel and
+              recent-transactions list below remain crisp and readable while
+              the card visual itself drifts with scroll velocity. The faint
+              diamond-blue inset ring is the rule-34 unique accent — it only
+              shows up at peak intensity, then fades back to transparent. */}
+          <div style={{
+            borderRadius: 20,
+            filter: blurIntensity > 0 ? `blur(${blurIntensity * PEAK_BLUR_PX}px)` : 'none',
+            boxShadow: blurIntensity > 0
+              ? `inset 0 0 0 1px rgba(125, 170, 225, ${blurIntensity * 0.35})`
+              : 'none',
+            transition: 'box-shadow 180ms ease',
+            willChange: blurIntensity > 0 ? 'filter' : 'auto',
+          }}>
+            <FlipTiltCard
+              back={<CardBack total={c.stats?.total || 0} last4={c.last4} name={c.name} />}>
+              <CardVisual type={c.type} />
+            </FlipTiltCard>
+          </div>
 
           <PaymentPanel current={c.stats?.current || 0} future={c.stats?.future || 0} />
 
