@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import FoggyGlassCanvas from './2026-05-25-component-foggy-glass-canvas.jsx';
 import LiquidChromeCanvas from './2026-05-25-component-liquid-chrome-canvas.jsx';
 import MeshGradientCanvas from './2026-05-25-component-mesh-gradient-canvas.jsx';
+import StormGlassCityCanvas from './2026-05-27-component-storm-glass-city-canvas.jsx';
+import BlurryCityLightsCanvas from './2026-05-27-component-blurry-city-lights-canvas.jsx';
+import DarkAbstractGlassCanvas from './2026-05-27-component-dark-abstract-glass-canvas.jsx';
 
 const STORAGE_DESIGN = 'aurum.glassTheme.design.v2';
 const STORAGE_MODE   = 'aurum.glassTheme.mode.v2';
@@ -204,9 +207,95 @@ const DESIGNS = {
       tintOverlay: 'rgba(10,8,20,0.20)',
     },
   },
+
+  // =========================================================================
+  // I — Storm Glass City
+  // Dark stormy night skyline behind wet glass; rain streaks, droplets,
+  // distant lightning, subtle mouse parallax on the skyline. Mounted by
+  // <StormGlassCityCanvas/>; `bg` is the safety-net behind it.
+  // =========================================================================
+  I: {
+    name: 'Storm Glass City',
+    swatch: '#7AA0C8',
+    day: {
+      bg: `
+        radial-gradient(ellipse 70% 50% at 50% 78%, rgba(70,110,150,0.28) 0%, transparent 70%),
+        linear-gradient(180deg, #0A1422 0%, #0F1828 60%, #122035 100%)
+      `,
+      cardBg: 'rgba(20, 28, 44, 0.55)',
+      cardBorder: 'rgba(180, 200, 230, 0.30)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(220,232,250,0.20), inset 0 0 0 1px rgba(220,232,250,0.08)',
+      tintOverlay: 'rgba(10,14,22,0.18)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 70% 50% at 50% 78%, rgba(70,110,150,0.22) 0%, transparent 70%),
+        linear-gradient(180deg, #060A14 0%, #0A111E 50%, #0E1828 100%)
+      `,
+      cardBg: 'rgba(18, 24, 38, 0.58)',
+      cardBorder: 'rgba(170, 190, 220, 0.28)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.60), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(6,10,18,0.22)',
+    },
+  },
+
+  // =========================================================================
+  // J — Blurry City Lights
+  // Soft-focus night lights, bokeh disks + water streaks on a wet camera lens.
+  // Mounted by <BlurryCityLightsCanvas/>.
+  // =========================================================================
+  J: {
+    name: 'Blurry City Lights',
+    swatch: '#F0A66E',
+    day: {
+      bg: `
+        radial-gradient(ellipse 90% 55% at 50% 95%, rgba(240,150,80,0.18) 0%, transparent 65%),
+        linear-gradient(180deg, #07080C 0%, #0A0B10 60%, #0D0E14 100%)
+      `,
+      cardBg: 'rgba(14, 18, 26, 0.55)',
+      cardBorder: 'rgba(220, 232, 250, 0.22)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.60), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(6,7,12,0.18)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 90% 55% at 50% 95%, rgba(240,150,80,0.20) 0%, transparent 65%),
+        linear-gradient(180deg, #050608 0%, #07080C 50%, #0A0B10 100%)
+      `,
+      cardBg: 'rgba(12, 14, 20, 0.60)',
+      cardBorder: 'rgba(220, 232, 250, 0.22)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.65), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(4,5,9,0.24)',
+    },
+  },
+
+  // =========================================================================
+  // K — Dark Abstract Glass
+  // Black abstract glassmorphism: rounded glass beads, white/grey reflections,
+  // faint chromatic city-light tints, slow breathing motion. Mounted by
+  // <DarkAbstractGlassCanvas/>.
+  // =========================================================================
+  K: {
+    name: 'Dark Abstract Glass',
+    swatch: '#E6EAF0',
+    day: {
+      bg: `radial-gradient(ellipse 70% 55% at 50% 50%, #0E1014 0%, #06070A 70%, #020306 100%)`,
+      cardBg: 'rgba(18, 20, 26, 0.58)',
+      cardBorder: 'rgba(220, 232, 250, 0.28)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.60), inset 0 1px 0 rgba(220,232,250,0.20), inset 0 0 0 1px rgba(220,232,250,0.08)',
+      tintOverlay: 'rgba(4,6,10,0.22)',
+    },
+    night: {
+      bg: `radial-gradient(ellipse 70% 55% at 50% 50%, #0E1014 0%, #06070A 70%, #020306 100%)`,
+      cardBg: 'rgba(14, 16, 22, 0.62)',
+      cardBorder: 'rgba(220, 232, 250, 0.26)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.70), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(2,3,6,0.28)',
+    },
+  },
 };
 
-const DESIGN_ORDER = ['A', 'E', 'F', 'G', 'H'];
+const DESIGN_ORDER = ['A', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
 const MODE_ORDER   = ['auto', 'day', 'night'];
 
 // Which underlying app theme (`cream` = light, `onyx` = dark) pairs with each
@@ -220,6 +309,9 @@ const APP_THEME_FOR_GLASS = {
   F: { day: 'cream', night: 'onyx'  },
   G: { day: 'onyx',  night: 'onyx'  },
   H: { day: 'cream', night: 'onyx'  },
+  I: { day: 'onyx',  night: 'onyx'  },
+  J: { day: 'onyx',  night: 'onyx'  },
+  K: { day: 'onyx',  night: 'onyx'  },
 };
 
 const isClockDay = () => {
@@ -466,10 +558,14 @@ function GlassBackdrop({ glass }) {
           linear-gradient(0deg,   rgba(0,0,0,0.10)   0%, transparent 30%);
       }
 
-      /* For designs G + H, the full-viewport WebGL canvas already provides the
-         entire image, so the sheen overlay would just wash it out. Hide it. */
+      /* For designs G + H + I + J + K, the full-viewport canvas already
+         provides the entire image, so the sheen overlay would just wash it
+         out. Hide it. */
       html[data-glass-active="true"][data-glass-design="G"] .aurum-glass-bg-sheen,
-      html[data-glass-active="true"][data-glass-design="H"] .aurum-glass-bg-sheen {
+      html[data-glass-active="true"][data-glass-design="H"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="I"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="J"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="K"] .aurum-glass-bg-sheen {
         display: none;
       }
 
@@ -499,6 +595,24 @@ function GlassBackdrop({ glass }) {
       )}
       {glass.design === 'H' && (
         <MeshGradientCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'I' && (
+        <StormGlassCityCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'J' && (
+        <BlurryCityLightsCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'K' && (
+        <DarkAbstractGlassCanvas
           mode={glass.effectiveMode}
           aria-hidden="true"
         />
