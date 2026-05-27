@@ -1671,9 +1671,13 @@ export const CardPurchasesPage = () => {
     return transactions.filter((t) => {
       if (t.paymentMethod !== focusedCardMethod) return false;
       const d = new Date(t.date);
-      // Future-dated rows: always include in "preset" filters; respect bounds in custom.
+      // Future-dated rows: always include in "preset" filters (includeFuture
+      // is true). In a custom range the user picked an explicit window, so
+      // honor BOTH bounds — otherwise a future From date would still let
+      // scheduled charges between today and From leak in.
       if (d > today) {
         if (range.includeFuture) return true;
+        if (range.from && d < range.from) return false;
         if (range.to && d > range.to) return false;
         return true;
       }

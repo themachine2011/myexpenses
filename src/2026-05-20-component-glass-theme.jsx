@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { safeRead, safeWrite } from './2026-05-16-utils-storage-write-guard.jsx';
 import FoggyGlassCanvas from './2026-05-25-component-foggy-glass-canvas.jsx';
 import LiquidChromeCanvas from './2026-05-25-component-liquid-chrome-canvas.jsx';
 import MeshGradientCanvas from './2026-05-25-component-mesh-gradient-canvas.jsx';
@@ -320,13 +321,17 @@ const isClockDay = () => {
 };
 
 export function useGlassTheme() {
+  // Read via safeRead so the versioned `{__v, data}` envelope written by
+  // safeWrite (and the registered migrations in schema-migrations.js) is
+  // unwrapped correctly. Reading raw would hand back the literal JSON string
+  // and break effectiveMode → DESIGNS[design][effectiveMode] lookups.
   const [design, setDesign] = useState(() => {
-    try { const stored = localStorage.getItem(STORAGE_DESIGN); return stored && DESIGNS[stored] ? stored : 'A'; }
-    catch { return 'A'; }
+    const stored = safeRead(STORAGE_DESIGN, 'A');
+    return DESIGNS[stored] ? stored : 'A';
   });
   const [override, setOverride] = useState(() => {
-    try { return localStorage.getItem(STORAGE_MODE) || 'auto'; }
-    catch { return 'auto'; }
+    const stored = safeRead(STORAGE_MODE, 'auto');
+    return MODE_ORDER.includes(stored) ? stored : 'auto';
   });
   const [clockDay, setClockDay] = useState(isClockDay);
 
@@ -335,12 +340,8 @@ export function useGlassTheme() {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_DESIGN, design); } catch (_) {}
-  }, [design]);
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_MODE, override); } catch (_) {}
-  }, [override]);
+  useEffect(() => { safeWrite(STORAGE_DESIGN, design); }, [design]);
+  useEffect(() => { safeWrite(STORAGE_MODE, override); }, [override]);
 
   const effectiveMode = override === 'auto' ? (clockDay ? 'day' : 'night') : override;
 
