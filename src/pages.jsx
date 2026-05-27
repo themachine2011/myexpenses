@@ -1527,393 +1527,16 @@ export const Dashboard = () => {
   );
 };
 
-const cardInstallmentInfo = (tx) => {
-  const match = String(tx.description || '').match(/(?:·|\u00b7)\s*(\d+)\/(\d+)\s*$/);
-  if (match) return `Installment ${match[1]}/${match[2]}`;
-  return tx.groupId ? 'Installment schedule' : 'Single purchase';
-};
-
-const cardDisplayDescription = (tx) =>
-  String(tx.description || '').replace(/\s*(?:·|\u00b7)\s*\d+\/\d+\s*$/, '');
-
-const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
-  const escapeHtml = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-  const now = new Date();
-  const title = `${card.name} · Recent on this card`;
-  const visaBilling = card.method === 'VISA Mercado Pago'
-    ? `<div class="billing-box">
-        <div class="billing-label">Closing / payment date</div>
-        <div class="billing-date">15th of every month</div>
-        <div class="billing-note">Billing cycle date: 15th monthly</div>
-      </div>`
-    : '';
-
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const initialRows = rows.filter((tx) => new Date(tx.date) >= currentMonthStart);
-  const bodyRows = initialRows.length ? initialRows.map((tx) => {
-    const date = new Date(tx.date);
-    const future = date > now;
-    const installment = cardInstallmentInfo(tx);
-    return `
-      <tr class="${future ? 'future' : ''}">
-        <td>${escapeHtml(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }))}</td>
-        <td>
-          <div class="desc">${escapeHtml(cardDisplayDescription(tx))}</div>
-          <div class="meta">${escapeHtml(categoryLabel(tx.category))} · ${escapeHtml(tx.paymentMethod)}</div>
-        </td>
-        <td>${escapeHtml(installment)}</td>
-        <td>${future ? 'Future scheduled charge' : 'Current month purchase'}</td>
-        <td class="amount">${escapeHtml(fmt(tx.amount))}</td>
-      </tr>`;
-  }).join('') : '<tr><td colspan="5" class="empty">No current purchases or future / pending purchases on this card.</td></tr>';
-  const normalizedRows = rows.map((tx) => ({
-    id: tx.id,
-    date: tx.date,
-    description: cardDisplayDescription(tx),
-    category: categoryLabel(tx.category),
-    paymentMethod: tx.paymentMethod,
-    amount: Number(tx.amount) || 0,
-    amountLabel: fmt(tx.amount),
-    installment: cardInstallmentInfo(tx),
-  }));
-  const rowsJson = JSON.stringify(normalizedRows).replace(/</g, '\\u003c');
-
-  const html = `<!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${escapeHtml(title)}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            background: #121212;
-            color: #F2EDE6;
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          }
-          main { max-width: 1180px; margin: 0 auto; padding: 32px; }
-          header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 24px;
-            border-bottom: 1px solid #333333;
-            padding-bottom: 20px;
-          }
-          .eyebrow {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 11px;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-          }
-          h1 { margin: 8px 0 0; font-size: 34px; letter-spacing: -0.02em; }
-          .summary { margin-top: 10px; color: #999999; font-size: 14px; }
-          .filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            margin: 0 0 18px;
-            padding: 14px;
-            border: 1px solid #333333;
-            border-radius: 16px;
-            background: #1E1E1E;
-          }
-          .filter-btn, .custom-input {
-            border: 1px solid #3A3A3A;
-            border-radius: 999px;
-            background: transparent;
-            color: #999999;
-            padding: 8px 12px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-          }
-          .filter-btn { cursor: pointer; transition: all 180ms ease; }
-          .filter-btn.active {
-            border-color: #E0A899;
-            background: #E0A899;
-            color: #0B0B0D;
-          }
-          .custom-input {
-            border-radius: 10px;
-            color-scheme: dark;
-            display: none;
-          }
-          .filters.custom .custom-input { display: inline-block; }
-          .totals {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
-            margin: 0 0 18px;
-          }
-          .metric {
-            border: 1px solid #333333;
-            border-radius: 14px;
-            padding: 12px 14px;
-            background: #1E1E1E;
-          }
-          .metric-label {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-          }
-          .metric-value { margin-top: 4px; font-size: 20px; font-weight: 700; }
-          .billing-box {
-            min-width: 260px;
-            border: 1px solid #E0A899;
-            border-radius: 16px;
-            padding: 14px 16px;
-            text-align: right;
-            background: rgba(224, 168, 153, 0.10);
-          }
-          .billing-label, .billing-note {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-          }
-          .billing-date { margin: 4px 0; color: #F2EDE6; font-size: 22px; font-weight: 700; }
-          h2 {
-            margin: 24px 0 10px;
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 11px;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-          }
-          table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 16px; }
-          th, td { padding: 14px 16px; border-bottom: 1px solid #2A2A2A; text-align: left; vertical-align: top; }
-          th {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            background: #1E1E1E;
-          }
-          tr.future td { color: #E0B33B; }
-          tr.pending td { color: #E0B33B; }
-          .desc { font-weight: 600; color: inherit; }
-          .meta {
-            margin-top: 4px;
-            color: #777777;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-          }
-          .amount { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-          .empty { text-align: center; color: #999999; padding: 32px; }
-          .section { margin-top: 8px; }
-          @media (max-width: 760px) {
-            main { padding: 20px; }
-            header { display: grid; }
-            .billing-box { text-align: left; width: 100%; }
-            table { display: block; overflow-x: auto; white-space: nowrap; }
-          }
-        </style>
-      </head>
-      <body>
-        <main>
-          <header>
-            <div>
-              <div class="eyebrow">Recent on this card</div>
-              <h1>${escapeHtml(card.name)}</h1>
-              <div class="summary">Current purchases of the month and Future / Pending purchases</div>
-            </div>
-            ${visaBilling}
-          </header>
-          <section id="filters" class="filters">
-            <button class="filter-btn active" data-filter="currentFuture">Current + Future / Pending</button>
-            <button class="filter-btn" data-filter="last30">Last 30 days</button>
-            <button class="filter-btn" data-filter="cycle15">15th last month &rarr; 15th this month</button>
-            <button class="filter-btn" data-filter="last60">Last 60 days</button>
-            <button class="filter-btn" data-filter="last90">Last 90 days</button>
-            <button class="filter-btn" data-filter="custom">Custom period</button>
-            <input id="customFrom" class="custom-input" type="date" />
-            <input id="customTo" class="custom-input" type="date" />
-          </section>
-          <section class="totals">
-            <div class="metric">
-              <div class="metric-label">Transactions</div>
-              <div id="countTotal" class="metric-value">0</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Current period</div>
-              <div id="currentTotal" class="metric-value">R$ 0,00</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Future / Pending</div>
-              <div id="futureTotal" class="metric-value">R$ 0,00</div>
-            </div>
-          </section>
-          <section class="section">
-          <h2>Current month purchases</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Transaction date</th>
-                <th>Description</th>
-                <th>Installment information</th>
-                <th>Schedule</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody id="currentRows">${bodyRows}</tbody>
-          </table>
-          </section>
-          <section class="section">
-          <h2>Future / Pending purchases</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Transaction date</th>
-                <th>Description</th>
-                <th>Installment information</th>
-                <th>Schedule</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody id="futureRows"></tbody>
-          </table>
-          </section>
-        </main>
-        <script>
-          const rows = ${rowsJson};
-          const today = new Date();
-          today.setHours(23, 59, 59, 999);
-          const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-          const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-          const filterBox = document.getElementById('filters');
-          const customFrom = document.getElementById('customFrom');
-          const customTo = document.getElementById('customTo');
-          let activeFilter = 'currentFuture';
-
-          const escapeText = (value) => String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-
-          const dayStart = (date) => {
-            const d = new Date(date);
-            d.setHours(0, 0, 0, 0);
-            return d;
-          };
-          const addDays = (date, days) => {
-            const d = dayStart(date);
-            d.setDate(d.getDate() + days);
-            return d;
-          };
-          const cycle15Range = () => ({
-            from: new Date(today.getFullYear(), today.getMonth() - 1, 15),
-            to: new Date(today.getFullYear(), today.getMonth(), 15, 23, 59, 59, 999),
-          });
-          const activeRange = () => {
-            if (activeFilter === 'last30') return { from: addDays(today, -30), to: today };
-            if (activeFilter === 'last60') return { from: addDays(today, -60), to: today };
-            if (activeFilter === 'last90') return { from: addDays(today, -90), to: today };
-            if (activeFilter === 'cycle15') return cycle15Range();
-            if (activeFilter === 'custom') {
-              return {
-                from: customFrom.value ? dayStart(customFrom.value) : null,
-                to: customTo.value ? new Date(customTo.value + 'T23:59:59.999') : null,
-              };
-            }
-            return { from: currentMonthStart, to: null };
-          };
-          const visibleRows = () => {
-            const range = activeRange();
-            return rows.filter((row) => {
-              const d = new Date(row.date);
-              if (range.from && d < range.from) return false;
-              if (range.to && d > range.to) return false;
-              return true;
-            }).sort((a, b) => new Date(a.date) - new Date(b.date));
-          };
-          const rowHtml = (row, label, cls) => {
-            const date = new Date(row.date);
-            return '<tr class="' + cls + '">' +
-              '<td>' + escapeText(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })) + '</td>' +
-              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(row.category) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
-              '<td>' + escapeText(row.installment) + '</td>' +
-              '<td>' + label + '</td>' +
-              '<td class="amount">' + escapeText(row.amountLabel) + '</td>' +
-            '</tr>';
-          };
-          const emptyHtml = (message) => '<tr><td colspan="5" class="empty">' + escapeText(message) + '</td></tr>';
-          const render = () => {
-            filterBox.classList.toggle('custom', activeFilter === 'custom');
-            const rowsInRange = visibleRows();
-            const currentRows = rowsInRange.filter((row) => new Date(row.date) <= today);
-            const futureRows = rowsInRange.filter((row) => new Date(row.date) > today);
-            document.getElementById('currentRows').innerHTML = currentRows.length
-              ? currentRows.map((row) => rowHtml(row, 'Current purchase', '')).join('')
-              : emptyHtml('No current purchases in this filter.');
-            document.getElementById('futureRows').innerHTML = futureRows.length
-              ? futureRows.map((row) => rowHtml(row, 'Future / Pending scheduled charge', 'pending')).join('')
-              : emptyHtml('No future / pending purchases in this filter.');
-            const currentAmount = currentRows.reduce((sum, row) => sum + row.amount, 0);
-            const futureAmount = futureRows.reduce((sum, row) => sum + row.amount, 0);
-            document.getElementById('countTotal').textContent = String(rowsInRange.length);
-            document.getElementById('currentTotal').textContent = money.format(currentAmount);
-            document.getElementById('futureTotal').textContent = money.format(futureAmount);
-          };
-          document.querySelectorAll('[data-filter]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-              activeFilter = btn.dataset.filter;
-              document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn));
-              render();
-            });
-          });
-          customFrom.addEventListener('change', render);
-          customTo.addEventListener('change', render);
-          render();
-        </script>
-      </body>
-    </html>`;
-  return html;
-};
-
-const createCardPurchasesUrl = (args) =>
-  URL.createObjectURL(new Blob([buildCardPurchasesHtml(args)], { type: 'text/html;charset=utf-8' }));
-
-const openCardPurchasesWindow = (args) => {
-  const html = buildCardPurchasesHtml(args);
-  const opened = window.open('', '_blank');
-  if (opened) {
-    opened.document.open();
-    opened.document.write(html);
-    opened.document.close();
-    opened.focus?.();
-    return;
-  }
-  const url = createCardPurchasesUrl(args);
-  window.open(url, '_blank');
-  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-};
-
-const CardRecentPurchasesLink = ({ card, rows, fmt, themeTokens }) => {
+// Switches the app to the in-app CardPurchasesPage for this card. Renders
+// inside the main app shell so it inherits the GlassTheme wallpaper, theme
+// tokens, and fonts automatically — no new browser tab, no popup blockers,
+// no document.write fragility.
+const CardRecentPurchasesLink = ({ card, themeTokens }) => {
+  const { setFocusedCardMethod, setView } = useAppContext();
   const handleClick = (e) => {
     e.preventDefault();
-    try {
-      openCardPurchasesWindow({ card, rows, fmt });
-    } catch (_) {}
+    setFocusedCardMethod(card.method);
+    setView('cardPurchases');
   };
   return (
     <button
@@ -1948,11 +1571,7 @@ export const CardsPage = () => {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 28 }}>
-      {cards.map((c, i) => {
-        const cardRows = (c.stats?.txs || [])
-          .slice()
-          .sort((a, b) => new Date(a.date) - new Date(b.date));
-        return (
+      {cards.map((c, i) => (
         <motion.div key={i}
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}>
@@ -1981,7 +1600,7 @@ export const CardsPage = () => {
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${themeTokens.hairline}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
               <Eyebrow>Recent on this card</Eyebrow>
-              <CardRecentPurchasesLink card={c} rows={cardRows} fmt={fmt} themeTokens={themeTokens} />
+              <CardRecentPurchasesLink card={c} themeTokens={themeTokens} />
             </div>
             {(c.stats?.txs || []).slice(0, 4).map((tx) =>
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
@@ -1991,16 +1610,18 @@ export const CardsPage = () => {
             )}
           </div>
         </motion.div>
-      );
-      })}
+      ))}
     </div>
   );
 };
 
 // Full-page view of one card's purchases. Splits Current (already happened up
 // to today) and Future / Pending (dated after today). Filters: 30D / 60D / 90D
-// / Custom date range. Opens in a separate browser tab via the URL params
-// `?card=<method>&view=cardPurchases` (see CardRecentPurchasesLink + App.jsx).
+// / Custom date range. Routed in-app by CardRecentPurchasesLink setting
+// `view = 'cardPurchases'` + `focusedCardMethod` in AppContext (see App.jsx
+// switch case). Inherits the GlassTheme wallpaper because it renders inside
+// the main app shell. URL params `?card=<method>&view=cardPurchases` still
+// bootstrap the same view if someone opens that link directly (App.jsx:64).
 export const CardPurchasesPage = () => {
   const {
     transactions, themeTokens, fmt,
