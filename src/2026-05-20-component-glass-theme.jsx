@@ -45,114 +45,6 @@ const DESIGNS = {
     },
   },
 
-  B: {
-    name: 'Liquid Onyx',
-    swatch: '#C5A572',
-    day: {
-      bg: `
-        radial-gradient(circle 8px at 18% 22%, rgba(255,235,200,0.58), transparent 76%),
-        radial-gradient(circle 6px at 38% 65%, rgba(255,225,180,0.42), transparent 72%),
-        radial-gradient(circle 11px at 68% 28%, rgba(255,235,200,0.52), transparent 82%),
-        radial-gradient(circle 7px at 82% 78%, rgba(255,230,190,0.46), transparent 76%),
-        radial-gradient(circle 5px at 52% 88%, rgba(255,235,200,0.50), transparent 72%),
-        radial-gradient(ellipse 52% 42% at 72% 18%, rgba(200,165,110,0.42), transparent 62%),
-        radial-gradient(ellipse 65% 55% at 22% 72%, rgba(60,55,50,0.55), transparent 66%),
-        linear-gradient(135deg, #2C2823 0%, #3A352D 50%, #1F1B17 100%)
-      `,
-      cardBg: 'rgba(40, 42, 50, 0.45)',
-      cardBorder: 'rgba(197, 165, 114, 0.30)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.45), inset 0 1px 0 rgba(197,165,114,0.22), inset 0 0 0 1px rgba(197,165,114,0.10)',
-      tintOverlay: 'rgba(30,28,24,0.18)',
-    },
-    night: {
-      bg: `
-        radial-gradient(circle 6px at 16% 25%, rgba(220,210,180,0.42), transparent 76%),
-        radial-gradient(circle 5px at 42% 70%, rgba(220,210,180,0.34), transparent 72%),
-        radial-gradient(circle 9px at 72% 32%, rgba(220,210,180,0.46), transparent 76%),
-        radial-gradient(circle 6px at 88% 82%, rgba(220,210,180,0.40), transparent 72%),
-        radial-gradient(ellipse 40% 32% at 76% 20%, rgba(180,160,120,0.40), transparent 62%),
-        radial-gradient(ellipse 62% 52% at 24% 70%, rgba(35,30,28,0.60), transparent 66%),
-        linear-gradient(135deg, #0F0E0D 0%, #161412 50%, #0A0908 100%)
-      `,
-      cardBg: 'rgba(20, 22, 28, 0.55)',
-      cardBorder: 'rgba(197, 165, 114, 0.24)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.55), inset 0 1px 0 rgba(197,165,114,0.16), inset 0 0 0 1px rgba(197,165,114,0.08)',
-      tintOverlay: 'rgba(8,8,10,0.22)',
-    },
-  },
-
-  C: {
-    name: 'Cream',
-    swatch: '#E6D5B8',
-    day: {
-      bg: `
-        radial-gradient(circle 9px at 14% 20%, rgba(255,255,255,0.88), transparent 76%),
-        radial-gradient(circle 6px at 32% 58%, rgba(255,255,255,0.68), transparent 72%),
-        radial-gradient(circle 12px at 62% 32%, rgba(255,255,255,0.64), transparent 82%),
-        radial-gradient(circle 7px at 80% 70%, rgba(255,255,255,0.74), transparent 72%),
-        radial-gradient(circle 5px at 48% 86%, rgba(255,255,255,0.64), transparent 72%),
-        radial-gradient(ellipse 54% 44% at 76% 14%, rgba(255,245,220,0.55), transparent 62%),
-        radial-gradient(ellipse 64% 54% at 18% 70%, rgba(214,199,168,0.48), transparent 66%),
-        linear-gradient(135deg, #FAF6EF 0%, #ECE2D0 45%, #D6C7A8 100%)
-      `,
-      cardBg: 'rgba(255, 252, 247, 0.62)',
-      cardBorder: 'rgba(160, 140, 110, 0.45)',
-      cardShadow: '0 18px 44px rgba(120, 95, 60, 0.20), inset 0 1px 0 rgba(255,252,247,0.80), inset 0 0 0 1px rgba(255,252,247,0.25)',
-      tintOverlay: 'rgba(255,252,247,0.06)',
-    },
-    night: {
-      bg: `
-        radial-gradient(circle 8px at 18% 22%, rgba(230,213,184,0.50), transparent 76%),
-        radial-gradient(circle 5px at 36% 62%, rgba(230,213,184,0.42), transparent 72%),
-        radial-gradient(circle 10px at 68% 34%, rgba(230,213,184,0.48), transparent 76%),
-        radial-gradient(circle 6px at 84% 78%, rgba(230,213,184,0.44), transparent 72%),
-        radial-gradient(ellipse 46% 36% at 72% 18%, rgba(230,213,184,0.40), transparent 62%),
-        radial-gradient(ellipse 62% 52% at 20% 72%, rgba(34,28,18,0.55), transparent 66%),
-        linear-gradient(135deg, #18140E 0%, #221C12 50%, #0F0B08 100%)
-      `,
-      cardBg: 'rgba(45, 38, 28, 0.55)',
-      cardBorder: 'rgba(230, 213, 184, 0.30)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.50), inset 0 1px 0 rgba(230,213,184,0.18), inset 0 0 0 1px rgba(230,213,184,0.10)',
-      tintOverlay: 'rgba(20,16,10,0.18)',
-    },
-  },
-
-  D: {
-    name: 'Crystal Frost',
-    swatch: '#C5C7CC',
-    day: {
-      bg: `
-        radial-gradient(circle 8px at 14% 18%, rgba(255,255,255,0.88), transparent 76%),
-        radial-gradient(circle 6px at 32% 60%, rgba(255,255,255,0.68), transparent 72%),
-        radial-gradient(circle 12px at 68% 30%, rgba(255,255,255,0.64), transparent 82%),
-        radial-gradient(circle 7px at 84% 72%, rgba(255,255,255,0.74), transparent 72%),
-        radial-gradient(circle 5px at 50% 86%, rgba(255,255,255,0.64), transparent 72%),
-        radial-gradient(ellipse 52% 44% at 76% 16%, rgba(255,255,255,0.52), transparent 62%),
-        radial-gradient(ellipse 66% 56% at 22% 68%, rgba(140,150,165,0.45), transparent 66%),
-        linear-gradient(135deg, #F5F7FA 0%, #DDE2E8 45%, #B7BDC5 100%)
-      `,
-      cardBg: 'rgba(255, 255, 255, 0.58)',
-      cardBorder: 'rgba(110, 120, 135, 0.55)',
-      cardShadow: '0 18px 44px rgba(60, 70, 90, 0.22), inset 0 1px 0 rgba(255,255,255,0.80), inset 0 0 0 1px rgba(255,255,255,0.25)',
-      tintOverlay: 'rgba(255,255,255,0.04)',
-    },
-    night: {
-      bg: `
-        radial-gradient(circle 7px at 16% 22%, rgba(220,225,232,0.45), transparent 76%),
-        radial-gradient(circle 5px at 32% 64%, rgba(220,225,232,0.38), transparent 72%),
-        radial-gradient(circle 10px at 70% 36%, rgba(220,225,232,0.48), transparent 76%),
-        radial-gradient(circle 6px at 86% 80%, rgba(220,225,232,0.42), transparent 72%),
-        radial-gradient(ellipse 42% 34% at 76% 18%, rgba(220,225,232,0.42), transparent 62%),
-        radial-gradient(ellipse 62% 52% at 20% 70%, rgba(20,22,28,0.55), transparent 66%),
-        linear-gradient(135deg, #0E1014 0%, #1A1D22 50%, #07080A 100%)
-      `,
-      cardBg: 'rgba(40, 44, 52, 0.55)',
-      cardBorder: 'rgba(180, 185, 195, 0.32)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.55), inset 0 1px 0 rgba(220,225,232,0.18), inset 0 0 0 1px rgba(220,225,232,0.08)',
-      tintOverlay: 'rgba(8,10,14,0.10)',
-    },
-  },
-
   E: {
     name: 'Wet Glass Motion',
     swatch: '#9CB4D0',
@@ -314,20 +206,16 @@ const DESIGNS = {
   },
 };
 
-const DESIGN_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const DESIGN_ORDER = ['A', 'E', 'F', 'G', 'H'];
 const MODE_ORDER   = ['auto', 'day', 'night'];
 
 // Which underlying app theme (`cream` = light, `onyx` = dark) pairs with each
 // glass design + day/night combo, so text always has contrast with the bg.
-// Pure White (A) is always light. Liquid Onyx (B) is always dark. Cream (C)
-// and Crystal Frost (D) flip with day/night.
-// Liquid Chrome (G) is always dark (steel tones — light text). Mesh Gradient
-// (H) flips with day/night the same way C/D do.
+// Pure White (A) is always light. Liquid Chrome (G) is always dark (steel
+// tones — light text). Wet Glass Motion (E), Foggy Glass (F), and Mesh
+// Gradient (H) flip with day/night.
 const APP_THEME_FOR_GLASS = {
   A: { day: 'cream', night: 'cream' },
-  B: { day: 'onyx',  night: 'onyx'  },
-  C: { day: 'cream', night: 'onyx'  },
-  D: { day: 'cream', night: 'onyx'  },
   E: { day: 'cream', night: 'onyx'  },
   F: { day: 'cream', night: 'onyx'  },
   G: { day: 'onyx',  night: 'onyx'  },
@@ -341,7 +229,7 @@ const isClockDay = () => {
 
 export function useGlassTheme() {
   const [design, setDesign] = useState(() => {
-    try { return localStorage.getItem(STORAGE_DESIGN) || 'A'; }
+    try { const stored = localStorage.getItem(STORAGE_DESIGN); return stored && DESIGNS[stored] ? stored : 'A'; }
     catch { return 'A'; }
   });
   const [override, setOverride] = useState(() => {
@@ -704,7 +592,7 @@ function GlassControlButtons({ glass, tk }) {
         <ModeIcon mode={glass.mode} effective={glass.effectiveMode} />
       </button>
 
-      {/* Design picker: A → B → C → D → E → F → G → H → A */}
+      {/* Design picker: A → E → F → G → H → A */}
       <button
         onClick={glass.cycleDesign}
         aria-label={`Glass design: ${glass.design} — ${glass.meta.name}`}

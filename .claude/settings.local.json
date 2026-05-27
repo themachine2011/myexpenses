@@ -26,7 +26,8 @@
       "Bash(git fetch *)",
       "Bash(grep -iE \"\\\\.\\(png|jpg|jpeg|webp|gif|svg|avif|bmp|tiff|heic\\)$\")",
       "Bash(git -C \"C:/Users/laurencio.pereira/OneDrive - Cyncly/Área de Trabalho/myexpenses\" status --short)",
-      "Bash(findstr /I \"node code esbuild vite chokidar\")"
+      "Bash(findstr /I \"node code esbuild vite chokidar\")",
+      "Bash(powershell -Command \"\\(Get-Content 'src\\\\2026-05-20-component-glass-theme.jsx' | Measure-Object -Line\\).Lines\")"
     ]
   }
 }
