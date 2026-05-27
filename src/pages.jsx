@@ -1186,10 +1186,171 @@ const BudgetsPanel = () => {
 // Compact Savings panel for the Dashboard. Replaces the old standalone Savings
 // tab — no luxury-car picture, just the numbers and controls. Lists goals when
 // the user has created any, otherwise shows an empty hint.
+//
+// USD secondary text shows next to every BRL value, driven by the live fxRate
+// from context (AwesomeAPI USD/BRL, refreshed periodically). If the rate is
+// unavailable (first run offline), USD lines are hidden gracefully — the
+// existing fxRate / fmtCurrency pipeline is reused, no second conversion
+// system is introduced. BRL is forced as the primary currency inside this
+// section regardless of the global currency tweak (per the section spec).
+
+// Single goal card — extracted as a module-level component so each goal's
+// custom-amount input keeps its own state and isn't reset every render of
+// the parent panel.
+const GoalCard = ({ goal, themeTokens, fmtBrl, fmtUsd, onAllocate, onReset, onRemove }) => {
+  const [custom, setCustom] = useState('');
+  const customNum = Number(custom);
+  const customValid = custom !== '' && Number.isFinite(customNum) && customNum > 0;
+
+  const allocated = Number(goal.allocated) || 0;
+  const target    = Number(goal.target)    || 0;
+  const { pct, monthsToTarget } = goalProgress(goal);
+  const remaining = Math.max(0, target - allocated);
+
+  const addCustom = () => {
+    if (!customValid) return;
+    onAllocate(goal, customNum);
+    setCustom('');
+  };
+  const onKey = (e) => { if (e.key === 'Enter' && customValid) addCustom(); };
+
+  const usdAllocated = fmtUsd(allocated);
+  const usdTarget    = fmtUsd(target);
+  const usdRemaining = fmtUsd(remaining);
+
+  return (
+    <div style={{
+      background: themeTokens.surface2,
+      border: `1px solid ${themeTokens.hairline}`,
+      borderRadius: 14, padding: 14,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div style={{ color: themeTokens.text, fontSize: 14, fontWeight: 600 }}>{goal.name}</div>
+        <button onClick={() => onRemove(goal.id)}
+          style={{ background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+          Remove
+        </button>
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: themeTokens.text, marginTop: 6 }}>
+        {fmtBrl(allocated)} <span style={{ color: themeTokens.textDim, fontSize: 12, fontWeight: 400 }}>/ {fmtBrl(target)}</span>
+      </div>
+      {usdAllocated && (
+        <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 2 }}>
+          {usdAllocated} <span style={{ opacity: 0.7 }}>/ {usdTarget}</span>
+        </div>
+      )}
+      <div style={{ position: 'relative', height: 6, background: themeTokens.surface, borderRadius: 999, overflow: 'hidden', marginTop: 10 }}>
+        <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: themeTokens.accent, transition: 'width 400ms ease' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+          {pct.toFixed(1)}% · {fmtBrl(remaining)}{usdRemaining ? ` (${usdRemaining})` : ''} left
+        </span>
+        {goal.due && monthsToTarget != null && (
+          <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+            {monthsToTarget >= 0 ? `${monthsToTarget}mo` : 'overdue'}
+          </span>
+        )}
+      </div>
+
+      {/* Quick-add chips: R$ 100,00 and R$ 500,00. Premium feel via hover lift
+          + accent-tinted background. Each chip shows its USD equivalent so the
+          user always sees both currencies before tapping. */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        {[100, 500].map((v) => {
+          const usd = fmtUsd(v);
+          return (
+            <button key={v} onClick={() => onAllocate(goal, v)}
+              style={{
+                padding: '8px 12px', borderRadius: 12,
+                border: `1px solid ${themeTokens.hairline2}`,
+                background: 'transparent', color: themeTokens.text,
+                fontFamily: 'var(--font-mono)', fontSize: 11,
+                cursor: 'pointer',
+                transition: 'all 180ms ease',
+                lineHeight: 1.2,
+                textAlign: 'left',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = themeTokens.accent;
+                e.currentTarget.style.background = `${themeTokens.accent}1A`;
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = themeTokens.hairline2;
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}>
+              <div style={{ fontWeight: 700 }}>+ {fmtBrl(v)}</div>
+              {usd && <div style={{ fontSize: 9, color: themeTokens.textDim, marginTop: 2 }}>{usd}</div>}
+            </button>
+          );
+        })}
+        <button onClick={() => onReset(goal)}
+          disabled={allocated === 0}
+          style={{
+            padding: '8px 12px', borderRadius: 12,
+            border: `1px solid ${themeTokens.hairline2}`,
+            background: 'transparent', color: themeTokens.textDim,
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            cursor: allocated === 0 ? 'not-allowed' : 'pointer',
+            opacity: allocated === 0 ? 0.4 : 1,
+            alignSelf: 'stretch',
+          }}>Reset</button>
+      </div>
+
+      {/* Custom amount input. Accepts any positive BRL value; Add button is
+          disabled until the value parses as a finite number > 0. Live USD
+          preview shows beneath while typing. */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="Custom amount (R$)"
+          style={{
+            flex: 1, minWidth: 0,
+            background: 'transparent',
+            border: `1px solid ${themeTokens.hairline2}`, borderRadius: 10,
+            padding: '7px 12px', color: themeTokens.text,
+            fontFamily: 'var(--font-mono)', fontSize: 12, outline: 'none',
+          }} />
+        <button
+          onClick={addCustom}
+          disabled={!customValid}
+          style={{
+            padding: '8px 14px', borderRadius: 999,
+            border: 'none',
+            background: customValid ? themeTokens.accent : themeTokens.surface,
+            color: customValid ? '#0B0B0D' : themeTokens.textDim,
+            fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 10,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            cursor: customValid ? 'pointer' : 'not-allowed',
+            opacity: customValid ? 1 : 0.5,
+            transition: 'all 180ms ease',
+            whiteSpace: 'nowrap',
+          }}>
+          Add
+        </button>
+      </div>
+      {customValid && fmtUsd(customNum) && (
+        <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, marginTop: 4 }}>
+          ≈ {fmtUsd(customNum)}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SavingsPanel = () => {
   const {
-    themeTokens, fmt, savingsTotal, addSaving,
-    goals, addGoal, updateGoal, deleteGoal,
+    themeTokens, savingsTotal, addSaving,
+    goals, addGoal, updateGoal, deleteGoal, fxRate,
   } = useAppContext();
 
   const [depositAmt, setDepositAmt] = useState('');
@@ -1201,6 +1362,21 @@ const SavingsPanel = () => {
   const totalAllocated = (goals || []).reduce((s, g) => s + (Number(g.allocated) || 0), 0);
   const unallocated    = Math.max(0, savingsTotal - totalAllocated);
 
+  // BRL is the primary currency in the Goals section regardless of the global
+  // currency tweak. Use fmtCurrency directly so the panel doesn't flip when
+  // the user toggles the wallet to USD.
+  const fmtBrl = (v) => fmtCurrency(v, 'BRL');
+
+  // BRL → USD secondary text. Returns `US$ 1,234.56` or null when fxRate is
+  // unavailable. Reuses the live AwesomeAPI rate from context — no second
+  // conversion system.
+  const fmtUsd = (brl) => {
+    const rate = Number(fxRate);
+    if (!Number.isFinite(rate) || rate <= 0) return null;
+    const usd = (Number(brl) || 0) / rate;
+    return `US$ ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd)}`;
+  };
+
   const inputStyle = {
     background: 'transparent',
     border: `1px solid ${themeTokens.hairline2}`, borderRadius: 10,
@@ -1208,19 +1384,35 @@ const SavingsPanel = () => {
     fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
   };
 
+  // New-goal validation:
+  // - name must be non-empty after trim (rejects whitespace-only)
+  // - target must parse as a finite number > 0 (rejects '', 'abc', 0, -5)
+  const trimmedName  = newName.trim();
+  const newTargetNum = Number(newTarget);
+  const nameValid    = trimmedName.length > 0;
+  const targetValid  = newTarget !== '' && Number.isFinite(newTargetNum) && newTargetNum > 0;
+  const newGoalValid = nameValid && targetValid;
+
   const submitNew = () => {
-    if (!newName || !newTarget) return;
-    addGoal({ name: newName, target: Number(newTarget), due: newDue || null, allocated: 0 });
+    if (!newGoalValid) return;
+    addGoal({ name: trimmedName, target: newTargetNum, due: newDue || null, allocated: 0 });
     setNewName(''); setNewTarget(''); setNewDue(''); setShowNewGoal(false);
   };
 
+  // Direct allocation: increments g.allocated by `delta` (>=0 floor). No
+  // longer constrained by the savings pool — users add money directly to
+  // their goal over time.
   const allocate = (g, delta) => {
     const curr = Number(g.allocated) || 0;
     const next = Math.max(0, curr + delta);
-    const newTotal = totalAllocated - curr + next;
-    if (newTotal > savingsTotal + 0.001) return;
     updateGoal(g.id, { allocated: next });
   };
+  const resetGoal = (g) => updateGoal(g.id, { allocated: 0 });
+
+  const usdBalance       = fmtUsd(savingsTotal);
+  const usdAllocated     = fmtUsd(totalAllocated);
+  const usdUnallocated   = fmtUsd(unallocated);
+  const usdTargetPreview = targetValid ? fmtUsd(newTargetNum) : null;
 
   return (
     <Surface>
@@ -1230,16 +1422,27 @@ const SavingsPanel = () => {
           <div style={{
             fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 38,
             color: themeTokens.text, letterSpacing: '-0.02em', marginTop: 4,
-          }}>{fmt(savingsTotal)}</div>
+          }}>{fmtBrl(savingsTotal)}</div>
+          {usdBalance && (
+            <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 11, marginTop: 2 }}>
+              {usdBalance}
+            </div>
+          )}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'baseline' }}>
           <div>
             <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Allocated</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text, marginTop: 4 }}>{fmt(totalAllocated)}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text, marginTop: 4 }}>{fmtBrl(totalAllocated)}</div>
+            {usdAllocated && (
+              <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 2 }}>{usdAllocated}</div>
+            )}
           </div>
           <div>
             <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Unallocated</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.accent, marginTop: 4 }}>{fmt(unallocated)}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.accent, marginTop: 4 }}>{fmtBrl(unallocated)}</div>
+            {usdUnallocated && (
+              <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 2 }}>{usdUnallocated}</div>
+            )}
           </div>
         </div>
       </div>
@@ -1283,86 +1486,46 @@ const SavingsPanel = () => {
           </div>
           <div>
             <Label tk={themeTokens}>Target (R$)</Label>
-            <input type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)}
+            <input type="number" inputMode="decimal" min="0" step="0.01"
+              value={newTarget} onChange={(e) => setNewTarget(e.target.value)}
               placeholder="0.00" style={{ ...inputStyle, width: '100%', fontFamily: 'var(--font-mono)' }} />
+            {usdTargetPreview && (
+              <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, marginTop: 4 }}>
+                ≈ {usdTargetPreview}
+              </div>
+            )}
           </div>
           <div>
             <Label tk={themeTokens}>Target date (optional)</Label>
             <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
               style={{ ...inputStyle, width: '100%', fontFamily: 'var(--font-mono)', colorScheme: themeTokens.isDark ? 'dark' : 'light' }} />
           </div>
-          <button onClick={submitNew} disabled={!newName || !newTarget}
+          <button onClick={submitNew} disabled={!newGoalValid}
             style={{
               padding: '10px 16px', border: 'none', borderRadius: 999,
               background: themeTokens.accent, color: '#0B0B0D',
               fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 10,
               letterSpacing: '0.18em', textTransform: 'uppercase',
-              cursor: (!newName || !newTarget) ? 'not-allowed' : 'pointer',
-              opacity: (!newName || !newTarget) ? 0.5 : 1, whiteSpace: 'nowrap',
+              cursor: newGoalValid ? 'pointer' : 'not-allowed',
+              opacity: newGoalValid ? 1 : 0.5, whiteSpace: 'nowrap',
             }}>Add goal</button>
         </div>
       )}
 
       {(goals || []).length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${themeTokens.hairline}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-          {goals.map((g) => {
-            const { pct, monthsToTarget } = goalProgress(g);
-            const remaining = Math.max(0, Number(g.target || 0) - Number(g.allocated || 0));
-            return (
-              <div key={g.id} style={{
-                background: themeTokens.surface2,
-                border: `1px solid ${themeTokens.hairline}`,
-                borderRadius: 14, padding: 14,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div style={{ color: themeTokens.text, fontSize: 14, fontWeight: 600 }}>{g.name}</div>
-                  <button onClick={() => deleteGoal(g.id)}
-                    style={{ background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                    Remove
-                  </button>
-                </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: themeTokens.text, marginTop: 6 }}>
-                  {fmt(Number(g.allocated) || 0)} <span style={{ color: themeTokens.textDim, fontSize: 12, fontWeight: 400 }}>/ {fmt(Number(g.target) || 0)}</span>
-                </div>
-                <div style={{ position: 'relative', height: 6, background: themeTokens.surface, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
-                  <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: themeTokens.accent, transition: 'width 400ms ease' }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                  <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>{pct.toFixed(1)}% · {fmt(remaining)} left</span>
-                  {g.due && monthsToTarget != null && (
-                    <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                      {monthsToTarget >= 0 ? `${monthsToTarget}mo` : 'overdue'}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                  {[50, 100, 500].map((v) => (
-                    <button key={v} onClick={() => allocate(g, v)} disabled={unallocated < v}
-                      style={{
-                        padding: '4px 10px', borderRadius: 999,
-                        border: `1px solid ${themeTokens.hairline2}`,
-                        background: 'transparent', color: themeTokens.textDim,
-                        fontFamily: 'var(--font-mono)', fontSize: 9,
-                        letterSpacing: '0.18em', textTransform: 'uppercase',
-                        cursor: unallocated < v ? 'not-allowed' : 'pointer',
-                        opacity: unallocated < v ? 0.4 : 1,
-                      }}>+{v}</button>
-                  ))}
-                  <button onClick={() => allocate(g, -(Number(g.allocated) || 0))}
-                    disabled={(Number(g.allocated) || 0) === 0}
-                    style={{
-                      padding: '4px 10px', borderRadius: 999,
-                      border: `1px solid ${themeTokens.hairline2}`,
-                      background: 'transparent', color: themeTokens.textDim,
-                      fontFamily: 'var(--font-mono)', fontSize: 9,
-                      letterSpacing: '0.18em', textTransform: 'uppercase',
-                      cursor: (Number(g.allocated) || 0) === 0 ? 'not-allowed' : 'pointer',
-                      opacity: (Number(g.allocated) || 0) === 0 ? 0.4 : 1,
-                    }}>Reset</button>
-                </div>
-              </div>
-            );
-          })}
+          {goals.map((g) => (
+            <GoalCard
+              key={g.id}
+              goal={g}
+              themeTokens={themeTokens}
+              fmtBrl={fmtBrl}
+              fmtUsd={fmtUsd}
+              onAllocate={allocate}
+              onReset={resetGoal}
+              onRemove={deleteGoal}
+            />
+          ))}
         </div>
       )}
     </Surface>
