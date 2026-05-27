@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useStoredState } from './2026-05-16-utils-storage-write-guard.jsx';
+import FoggyGlassCanvas from './2026-05-25-component-foggy-glass-canvas.jsx';
 
 const STORAGE_DESIGN = 'aurum.glassTheme.design.v2';
 const STORAGE_MODE   = 'aurum.glassTheme.mode.v2';
@@ -149,9 +151,103 @@ const DESIGNS = {
       tintOverlay: 'rgba(8,10,14,0.10)',
     },
   },
+
+  E: {
+    name: 'Wet Glass Motion',
+    swatch: '#9CB4D0',
+    day: {
+      bg: `
+        radial-gradient(circle 11px at 12% 20%, rgba(255,255,255,0.95), rgba(255,255,255,0.40) 38%, transparent 78%),
+        radial-gradient(circle 6px at 24% 52%, rgba(255,255,255,0.85), transparent 72%),
+        radial-gradient(circle 14px at 42% 30%, rgba(255,255,255,0.72), transparent 82%),
+        radial-gradient(circle 8px at 70% 60%, rgba(255,255,255,0.90), transparent 72%),
+        radial-gradient(circle 5px at 36% 82%, rgba(255,255,255,0.78), transparent 70%),
+        radial-gradient(circle 12px at 88% 78%, rgba(255,255,255,0.70), transparent 76%),
+        radial-gradient(circle 7px at 58% 14%, rgba(255,255,255,0.78), transparent 72%),
+        radial-gradient(ellipse 60% 50% at 82% 14%, rgba(255,250,235,0.65), transparent 60%),
+        radial-gradient(ellipse 55% 45% at 14% 78%, rgba(165,190,220,0.45), transparent 66%),
+        linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.55) 38%, transparent 62%),
+        linear-gradient(135deg, #F8FAFF 0%, #E8EEF5 45%, #CBD6E2 100%)
+      `,
+      cardBg: 'rgba(255, 255, 255, 0.50)',
+      cardBorder: 'rgba(160, 180, 210, 0.45)',
+      cardShadow: '0 22px 50px rgba(60, 80, 110, 0.18), inset 0 1px 0 rgba(255,255,255,0.80), inset 0 0 0 1px rgba(255,255,255,0.30)',
+      tintOverlay: 'rgba(255,255,255,0.05)',
+    },
+    night: {
+      bg: `
+        radial-gradient(circle 9px at 12% 22%, rgba(220,230,245,0.50), transparent 76%),
+        radial-gradient(circle 5px at 26% 56%, rgba(220,230,245,0.42), transparent 72%),
+        radial-gradient(circle 12px at 44% 32%, rgba(220,230,245,0.46), transparent 78%),
+        radial-gradient(circle 7px at 72% 62%, rgba(220,230,245,0.50), transparent 72%),
+        radial-gradient(circle 5px at 38% 82%, rgba(220,230,245,0.40), transparent 70%),
+        radial-gradient(circle 10px at 86% 78%, rgba(220,230,245,0.44), transparent 76%),
+        radial-gradient(ellipse 50% 40% at 80% 16%, rgba(200,220,245,0.30), transparent 60%),
+        radial-gradient(ellipse 55% 45% at 14% 78%, rgba(70,90,120,0.40), transparent 66%),
+        linear-gradient(110deg, transparent 0%, rgba(180,200,230,0.18) 38%, transparent 62%),
+        linear-gradient(135deg, #0A0E14 0%, #11161F 50%, #060810 100%)
+      `,
+      cardBg: 'rgba(28, 34, 46, 0.55)',
+      cardBorder: 'rgba(150, 170, 200, 0.30)',
+      cardShadow: '0 22px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(180,200,230,0.18), inset 0 0 0 1px rgba(180,200,230,0.08)',
+      tintOverlay: 'rgba(10,14,22,0.18)',
+    },
+  },
+
+  F: {
+    name: 'Foggy Glass',
+    swatch: '#A6B8CC',
+    day: {
+      // Soft transparent-glass scene: warm sun upper-right, cool blue lower-left,
+      // faint horizon band in the middle. Tuned to read calm when blurred by
+      // the .aurum-glass-bg-layer filter. The live droplets + bubbles are drawn
+      // on top by <FoggyGlassCanvas/>, which only mounts when design === 'F'.
+      bg: `
+        radial-gradient(circle 9px at 16% 22%, rgba(255,255,255,0.78), transparent 76%),
+        radial-gradient(circle 6px at 34% 60%, rgba(255,255,255,0.62), transparent 72%),
+        radial-gradient(circle 11px at 66% 30%, rgba(255,255,255,0.66), transparent 80%),
+        radial-gradient(circle 7px at 82% 72%, rgba(255,255,255,0.70), transparent 72%),
+        radial-gradient(ellipse 50% 60% at 80% 20%, rgba(255,238,205,0.72), transparent 70%),
+        radial-gradient(ellipse 64% 48% at 18% 78%, rgba(160,185,215,0.50), transparent 70%),
+        linear-gradient(180deg,
+          rgba(180,200,225,0.55) 0%,
+          rgba(170,190,215,0.35) 35%,
+          rgba(150,170,195,0.55) 58%,
+          rgba(140,160,185,0.40) 65%,
+          rgba(170,190,210,0.30) 75%,
+          transparent           90%),
+        linear-gradient(135deg, #DDE5EE 0%, #CFD9E4 45%, #B6C4D2 100%)
+      `,
+      cardBg: 'rgba(255, 255, 255, 0.46)',
+      cardBorder: 'rgba(150, 170, 200, 0.42)',
+      cardShadow: '0 20px 48px rgba(60, 80, 110, 0.20), inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 0 1px rgba(255,255,255,0.25)',
+      tintOverlay: 'rgba(255,255,255,0.06)',
+    },
+    night: {
+      bg: `
+        radial-gradient(circle 8px at 16% 22%, rgba(220,232,248,0.46), transparent 76%),
+        radial-gradient(circle 5px at 32% 58%, rgba(220,232,248,0.40), transparent 72%),
+        radial-gradient(circle 10px at 68% 30%, rgba(220,232,248,0.46), transparent 78%),
+        radial-gradient(circle 6px at 84% 76%, rgba(220,232,248,0.40), transparent 72%),
+        radial-gradient(ellipse 46% 38% at 80% 20%, rgba(200,215,240,0.30), transparent 64%),
+        radial-gradient(ellipse 62% 52% at 18% 76%, rgba(40,55,80,0.55), transparent 66%),
+        linear-gradient(180deg,
+          rgba(30,40,58,0.40) 0%,
+          rgba(22,32,48,0.30) 40%,
+          rgba(50,60,80,0.45) 58%,
+          rgba(38,50,72,0.35) 70%,
+          transparent         90%),
+        linear-gradient(135deg, #0D1320 0%, #141B2A 50%, #070A12 100%)
+      `,
+      cardBg: 'rgba(28, 36, 52, 0.55)',
+      cardBorder: 'rgba(150, 175, 210, 0.30)',
+      cardShadow: '0 20px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(180,200,230,0.18), inset 0 0 0 1px rgba(180,200,230,0.08)',
+      tintOverlay: 'rgba(10,14,22,0.18)',
+    },
+  },
 };
 
-const DESIGN_ORDER = ['A', 'B', 'C', 'D'];
+const DESIGN_ORDER = ['A', 'B', 'C', 'D', 'E', 'F'];
 const MODE_ORDER   = ['auto', 'day', 'night'];
 
 // Which underlying app theme (`cream` = light, `onyx` = dark) pairs with each
@@ -163,6 +259,8 @@ const APP_THEME_FOR_GLASS = {
   B: { day: 'onyx',  night: 'onyx'  },
   C: { day: 'cream', night: 'onyx'  },
   D: { day: 'cream', night: 'onyx'  },
+  E: { day: 'cream', night: 'onyx'  },
+  F: { day: 'cream', night: 'onyx'  },
 };
 
 const isClockDay = () => {
@@ -171,27 +269,18 @@ const isClockDay = () => {
 };
 
 export function useGlassTheme() {
-  const [design, setDesign] = useState(() => {
-    try { return localStorage.getItem(STORAGE_DESIGN) || 'A'; }
-    catch { return 'A'; }
-  });
-  const [override, setOverride] = useState(() => {
-    try { return localStorage.getItem(STORAGE_MODE) || 'auto'; }
-    catch { return 'auto'; }
-  });
+  // Reads + writes go through the project's versioned storage envelope
+  // (see CURRENT_VERSIONS / MIGRATIONS entries in
+  // src/2026-05-16-utils-schema-migrations.js). The migration table validates
+  // stored values and falls back to defaults if they're invalid.
+  const [design, setDesign]     = useStoredState(STORAGE_DESIGN, 'A');
+  const [override, setOverride] = useStoredState(STORAGE_MODE, 'auto');
   const [clockDay, setClockDay] = useState(isClockDay);
 
   useEffect(() => {
     const id = setInterval(() => setClockDay(isClockDay()), 60_000);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_DESIGN, design); } catch (_) {}
-  }, [design]);
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_MODE, override); } catch (_) {}
-  }, [override]);
 
   const effectiveMode = override === 'auto' ? (clockDay ? 'day' : 'night') : override;
 
@@ -216,6 +305,78 @@ function GlassBackdrop({ glass }) {
     html.setAttribute('data-glass-design', glass.design);
     html.setAttribute('data-glass-mode', glass.effectiveMode);
   }, [glass.design, glass.effectiveMode]);
+
+  // Floating-card scroll-depth — only on design E (Wet Glass Motion). Lifts
+  // glassed cards a few pixels with a stronger shadow while scrolling, then
+  // settles back ~250ms after motion stops. rAF-throttled, GPU-only writes,
+  // no layout reads. Skipped entirely when reduced-motion is requested.
+  useEffect(() => {
+    if (glass.design !== 'E') {
+      const root = document.documentElement;
+      root.style.removeProperty('--glass-card-lift');
+      root.style.removeProperty('--glass-card-shadow-active');
+      return;
+    }
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    const root = document.documentElement;
+    let lastY     = window.scrollY;
+    let lastT     = performance.now();
+    let rafId     = 0;
+    let settleId  = 0;
+    let pending   = false;
+
+    // Stacking-context note: applying `transform` to a card creates a new
+    // containing block, which traps `position: fixed` children — including
+    // the explanation balloon, which is supposed to overflow above any
+    // neighboring card. To keep the balloon escape-able while idle, we
+    // only set `data-glass-scrolling` (which gates the transform CSS) for
+    // the brief window the user is actively scrolling. Between scrolls,
+    // no transform exists on the cards, so the balloon floats correctly.
+    const settle = () => {
+      root.style.setProperty('--glass-card-lift', '0px');
+      root.style.removeProperty('--glass-card-shadow-active');
+      root.removeAttribute('data-glass-scrolling');
+    };
+
+    const onScroll = () => {
+      if (pending) return;
+      pending = true;
+      rafId = requestAnimationFrame(() => {
+        pending = false;
+        const now = performance.now();
+        const y   = window.scrollY;
+        const dt  = Math.max(1, now - lastT);
+        const dy  = Math.abs(y - lastY);
+        // px/ms → clamp 0..8 px of lift for full velocity, scaled so a normal
+        // wheel tick lands at ~4–6 px and a fast flick saturates at 8.
+        const lift = Math.min(8, (dy / dt) * 6);
+        lastY = y;
+        lastT = now;
+        root.setAttribute('data-glass-scrolling', 'true');
+        root.style.setProperty('--glass-card-lift', `-${lift.toFixed(2)}px`);
+        root.style.setProperty(
+          '--glass-card-shadow-active',
+          `0 ${(28 + lift * 2.4).toFixed(1)}px ${(60 + lift * 3).toFixed(1)}px rgba(20, 30, 50, ${(0.22 + lift * 0.012).toFixed(3)}), inset 0 1px 0 rgba(255,255,255,0.30)`,
+        );
+        clearTimeout(settleId);
+        settleId = setTimeout(settle, 250);
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafId);
+      clearTimeout(settleId);
+      root.style.removeProperty('--glass-card-lift');
+      root.style.removeProperty('--glass-card-shadow-active');
+      root.removeAttribute('data-glass-scrolling');
+    };
+  }, [glass.design]);
 
   useEffect(() => {
     const id = '__aurum_glass_styles';
@@ -261,6 +422,55 @@ function GlassBackdrop({ glass }) {
         box-shadow: var(--glass-card-shadow) !important;
       }
 
+      /* Floating-card scroll-depth -- only when Wet Glass Motion (E) is the
+         active design AND the user is actively scrolling. The
+         data-glass-scrolling attribute is toggled by the scroll handler and
+         removed about 250ms after the last scroll event. Gating transform on
+         this attribute keeps cards free of a stacking context while idle,
+         which is what lets the explanation balloon (position: fixed) float
+         above neighboring cards instead of being clipped inside them. */
+      html[data-glass-active="true"][data-glass-design="E"] [style*="#1E1E1E"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="#1e1e1e"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="rgb(30, 30, 30)"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="rgb(30,30,30)"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="rgba(255, 252, 246, 0.78)"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="rgba(255,252,246,0.78)"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="rgba(255,255,255,0.92)"],
+      html[data-glass-active="true"][data-glass-design="E"] [style*="rgba(255, 255, 255, 0.92)"] {
+        box-shadow: var(--glass-card-shadow-active, var(--glass-card-shadow)) !important;
+        transition:
+          transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+          box-shadow 320ms ease,
+          background 480ms ease,
+          border-color 480ms ease;
+      }
+
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="#1E1E1E"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="#1e1e1e"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgb(30, 30, 30)"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgb(30,30,30)"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255, 252, 246, 0.78)"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255,252,246,0.78)"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255,255,255,0.92)"],
+      html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255, 255, 255, 0.92)"] {
+        transform: translate3d(0, var(--glass-card-lift, 0px), 0);
+        will-change: transform;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="#1E1E1E"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="#1e1e1e"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgb(30, 30, 30)"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgb(30,30,30)"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255, 252, 246, 0.78)"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255,252,246,0.78)"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255,255,255,0.92)"],
+        html[data-glass-active="true"][data-glass-design="E"][data-glass-scrolling="true"] [style*="rgba(255, 255, 255, 0.92)"] {
+          transform: none;
+          will-change: auto;
+        }
+      }
+
       /* Soft drift so the wet glass feels alive without being distracting. */
       @keyframes aurumGlassDrift {
         0%, 100% { transform: translate3d(0, 0, 0) scale(1.08); }
@@ -300,6 +510,12 @@ function GlassBackdrop({ glass }) {
     <>
       <div className="aurum-glass-bg-layer" aria-hidden="true" />
       <div className="aurum-glass-bg-sheen" aria-hidden="true" />
+      {glass.design === 'F' && (
+        <FoggyGlassCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
     </>
   );
 }
