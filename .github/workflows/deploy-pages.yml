@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/preview-feature-Y27r6
   workflow_dispatch:
 
 permissions:
