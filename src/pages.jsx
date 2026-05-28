@@ -110,7 +110,10 @@ export const Display = ({ children, size = 56, color, style, weight = 700 }) => 
   );
 };
 
-const CARD_IMG = { visa: '/assets/visa.png', mastercard: '/assets/nubank.png' };
+// Prefix public assets with Vite's base URL so they resolve under a subpath
+// (e.g. GitHub Pages at /myexpenses/) as well as at the domain root.
+const asset = (p) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`;
+const CARD_IMG = { visa: asset('/assets/visa.png'), mastercard: asset('/assets/nubank.png') };
 
 export const CardVisual = ({ type }) => (
   <img src={CARD_IMG[type] || CARD_IMG.visa} alt=""
@@ -459,7 +462,7 @@ export const LuxurySedanGoal = () => {
           background: '#000',
           overflow: 'hidden'
         }}>
-          <img src="/assets/sport-sedan.png" alt="Sedan goal"
+          <img src={asset('/assets/sport-sedan.png')} alt="Sedan goal"
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
               objectFit: 'cover',
@@ -2487,8 +2490,8 @@ export const NetWorthPage = () => {
 
 const PAYMENT_METHODS = [
   { id: 'Debit/Cash',        label: 'Debit/Cash',  short: 'D/C',  img: null,                  type: 'debit' },
-  { id: 'VISA Mercado Pago', label: 'Mercado Pago', short: 'Visa', img: '/assets/visa.png',   type: 'visa' },
-  { id: 'Nubank MasterCard', label: 'Nubank',       short: 'Nu',   img: '/assets/nubank.png', type: 'mastercard' },
+  { id: 'VISA Mercado Pago', label: 'Mercado Pago', short: 'Visa', img: asset('/assets/visa.png'),   type: 'visa' },
+  { id: 'Nubank MasterCard', label: 'Nubank',       short: 'Nu',   img: asset('/assets/nubank.png'), type: 'mastercard' },
 ];
 
 // Branded chip colors for transaction lists (Dashboard, Ledger, History, etc.)
