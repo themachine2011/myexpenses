@@ -9,6 +9,7 @@ import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-schedule
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
 import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
+import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1590,6 +1591,10 @@ export const Dashboard = () => {
           valueColor={themeTokens.negative}
           yoy={yoyFixed} />
       </div>
+
+      <PanelErrorBoundary label="Financial Statements">
+        <DashboardFinancialStatements />
+      </PanelErrorBoundary>
 
       <PanelErrorBoundary label="Monthly Insights">
         <MonthlyInsights transactions={transactions} savingsTotal={savingsTotal} goalAmount={goalAmount}
