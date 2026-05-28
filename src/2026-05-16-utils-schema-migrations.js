@@ -63,7 +63,10 @@ export const MIGRATIONS = {
   // src/2026-05-20-component-glass-theme.jsx — if you add a new design there,
   // add it here too so the migration doesn't reset it to 'A'.
   'aurum.glassTheme.design.v2': {
-    0: (d) => (['A', 'B', 'C', 'D', 'E', 'F'].includes(d) ? d : 'A'),
+    // Keep this list in sync with DESIGN_ORDER in
+    // src/2026-05-20-component-glass-theme.jsx. Legacy v0 values for designs
+    // that no longer exist (B/C/D) get folded back to 'A'.
+    0: (d) => (['A', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].includes(d) ? d : 'A'),
   },
   'aurum.glassTheme.mode.v2': {
     0: (d) => (['auto', 'day', 'night'].includes(d) ? d : 'auto'),

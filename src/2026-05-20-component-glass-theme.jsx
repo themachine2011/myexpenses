@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useStoredState } from './2026-05-16-utils-storage-write-guard.jsx';
+import { safeRead, safeWrite } from './2026-05-16-utils-storage-write-guard.jsx';
 import FoggyGlassCanvas from './2026-05-25-component-foggy-glass-canvas.jsx';
+import LiquidChromeCanvas from './2026-05-25-component-liquid-chrome-canvas.jsx';
+import MeshGradientCanvas from './2026-05-25-component-mesh-gradient-canvas.jsx';
+import StormGlassCityCanvas from './2026-05-27-component-storm-glass-city-canvas.jsx';
+import BlurryCityLightsCanvas from './2026-05-27-component-blurry-city-lights-canvas.jsx';
+import DarkAbstractGlassCanvas from './2026-05-27-component-dark-abstract-glass-canvas.jsx';
 
 const STORAGE_DESIGN = 'aurum.glassTheme.design.v2';
 const STORAGE_MODE   = 'aurum.glassTheme.mode.v2';
@@ -41,114 +46,6 @@ const DESIGNS = {
       cardBorder: 'rgba(150, 140, 125, 0.35)',
       cardShadow: '0 18px 44px rgba(80, 70, 60, 0.18), inset 0 1px 0 rgba(255,253,250,0.80), inset 0 0 0 1px rgba(255,253,250,0.25)',
       tintOverlay: 'rgba(252,250,247,0.04)',
-    },
-  },
-
-  B: {
-    name: 'Liquid Onyx',
-    swatch: '#C5A572',
-    day: {
-      bg: `
-        radial-gradient(circle 8px at 18% 22%, rgba(255,235,200,0.58), transparent 76%),
-        radial-gradient(circle 6px at 38% 65%, rgba(255,225,180,0.42), transparent 72%),
-        radial-gradient(circle 11px at 68% 28%, rgba(255,235,200,0.52), transparent 82%),
-        radial-gradient(circle 7px at 82% 78%, rgba(255,230,190,0.46), transparent 76%),
-        radial-gradient(circle 5px at 52% 88%, rgba(255,235,200,0.50), transparent 72%),
-        radial-gradient(ellipse 52% 42% at 72% 18%, rgba(200,165,110,0.42), transparent 62%),
-        radial-gradient(ellipse 65% 55% at 22% 72%, rgba(60,55,50,0.55), transparent 66%),
-        linear-gradient(135deg, #2C2823 0%, #3A352D 50%, #1F1B17 100%)
-      `,
-      cardBg: 'rgba(40, 42, 50, 0.45)',
-      cardBorder: 'rgba(197, 165, 114, 0.30)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.45), inset 0 1px 0 rgba(197,165,114,0.22), inset 0 0 0 1px rgba(197,165,114,0.10)',
-      tintOverlay: 'rgba(30,28,24,0.18)',
-    },
-    night: {
-      bg: `
-        radial-gradient(circle 6px at 16% 25%, rgba(220,210,180,0.42), transparent 76%),
-        radial-gradient(circle 5px at 42% 70%, rgba(220,210,180,0.34), transparent 72%),
-        radial-gradient(circle 9px at 72% 32%, rgba(220,210,180,0.46), transparent 76%),
-        radial-gradient(circle 6px at 88% 82%, rgba(220,210,180,0.40), transparent 72%),
-        radial-gradient(ellipse 40% 32% at 76% 20%, rgba(180,160,120,0.40), transparent 62%),
-        radial-gradient(ellipse 62% 52% at 24% 70%, rgba(35,30,28,0.60), transparent 66%),
-        linear-gradient(135deg, #0F0E0D 0%, #161412 50%, #0A0908 100%)
-      `,
-      cardBg: 'rgba(20, 22, 28, 0.55)',
-      cardBorder: 'rgba(197, 165, 114, 0.24)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.55), inset 0 1px 0 rgba(197,165,114,0.16), inset 0 0 0 1px rgba(197,165,114,0.08)',
-      tintOverlay: 'rgba(8,8,10,0.22)',
-    },
-  },
-
-  C: {
-    name: 'Cream',
-    swatch: '#E6D5B8',
-    day: {
-      bg: `
-        radial-gradient(circle 9px at 14% 20%, rgba(255,255,255,0.88), transparent 76%),
-        radial-gradient(circle 6px at 32% 58%, rgba(255,255,255,0.68), transparent 72%),
-        radial-gradient(circle 12px at 62% 32%, rgba(255,255,255,0.64), transparent 82%),
-        radial-gradient(circle 7px at 80% 70%, rgba(255,255,255,0.74), transparent 72%),
-        radial-gradient(circle 5px at 48% 86%, rgba(255,255,255,0.64), transparent 72%),
-        radial-gradient(ellipse 54% 44% at 76% 14%, rgba(255,245,220,0.55), transparent 62%),
-        radial-gradient(ellipse 64% 54% at 18% 70%, rgba(214,199,168,0.48), transparent 66%),
-        linear-gradient(135deg, #FAF6EF 0%, #ECE2D0 45%, #D6C7A8 100%)
-      `,
-      cardBg: 'rgba(255, 252, 247, 0.62)',
-      cardBorder: 'rgba(160, 140, 110, 0.45)',
-      cardShadow: '0 18px 44px rgba(120, 95, 60, 0.20), inset 0 1px 0 rgba(255,252,247,0.80), inset 0 0 0 1px rgba(255,252,247,0.25)',
-      tintOverlay: 'rgba(255,252,247,0.06)',
-    },
-    night: {
-      bg: `
-        radial-gradient(circle 8px at 18% 22%, rgba(230,213,184,0.50), transparent 76%),
-        radial-gradient(circle 5px at 36% 62%, rgba(230,213,184,0.42), transparent 72%),
-        radial-gradient(circle 10px at 68% 34%, rgba(230,213,184,0.48), transparent 76%),
-        radial-gradient(circle 6px at 84% 78%, rgba(230,213,184,0.44), transparent 72%),
-        radial-gradient(ellipse 46% 36% at 72% 18%, rgba(230,213,184,0.40), transparent 62%),
-        radial-gradient(ellipse 62% 52% at 20% 72%, rgba(34,28,18,0.55), transparent 66%),
-        linear-gradient(135deg, #18140E 0%, #221C12 50%, #0F0B08 100%)
-      `,
-      cardBg: 'rgba(45, 38, 28, 0.55)',
-      cardBorder: 'rgba(230, 213, 184, 0.30)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.50), inset 0 1px 0 rgba(230,213,184,0.18), inset 0 0 0 1px rgba(230,213,184,0.10)',
-      tintOverlay: 'rgba(20,16,10,0.18)',
-    },
-  },
-
-  D: {
-    name: 'Crystal Frost',
-    swatch: '#C5C7CC',
-    day: {
-      bg: `
-        radial-gradient(circle 8px at 14% 18%, rgba(255,255,255,0.88), transparent 76%),
-        radial-gradient(circle 6px at 32% 60%, rgba(255,255,255,0.68), transparent 72%),
-        radial-gradient(circle 12px at 68% 30%, rgba(255,255,255,0.64), transparent 82%),
-        radial-gradient(circle 7px at 84% 72%, rgba(255,255,255,0.74), transparent 72%),
-        radial-gradient(circle 5px at 50% 86%, rgba(255,255,255,0.64), transparent 72%),
-        radial-gradient(ellipse 52% 44% at 76% 16%, rgba(255,255,255,0.52), transparent 62%),
-        radial-gradient(ellipse 66% 56% at 22% 68%, rgba(140,150,165,0.45), transparent 66%),
-        linear-gradient(135deg, #F5F7FA 0%, #DDE2E8 45%, #B7BDC5 100%)
-      `,
-      cardBg: 'rgba(255, 255, 255, 0.58)',
-      cardBorder: 'rgba(110, 120, 135, 0.55)',
-      cardShadow: '0 18px 44px rgba(60, 70, 90, 0.22), inset 0 1px 0 rgba(255,255,255,0.80), inset 0 0 0 1px rgba(255,255,255,0.25)',
-      tintOverlay: 'rgba(255,255,255,0.04)',
-    },
-    night: {
-      bg: `
-        radial-gradient(circle 7px at 16% 22%, rgba(220,225,232,0.45), transparent 76%),
-        radial-gradient(circle 5px at 32% 64%, rgba(220,225,232,0.38), transparent 72%),
-        radial-gradient(circle 10px at 70% 36%, rgba(220,225,232,0.48), transparent 76%),
-        radial-gradient(circle 6px at 86% 80%, rgba(220,225,232,0.42), transparent 72%),
-        radial-gradient(ellipse 42% 34% at 76% 18%, rgba(220,225,232,0.42), transparent 62%),
-        radial-gradient(ellipse 62% 52% at 20% 70%, rgba(20,22,28,0.55), transparent 66%),
-        linear-gradient(135deg, #0E1014 0%, #1A1D22 50%, #07080A 100%)
-      `,
-      cardBg: 'rgba(40, 44, 52, 0.55)',
-      cardBorder: 'rgba(180, 185, 195, 0.32)',
-      cardShadow: '0 18px 44px rgba(0,0,0,0.55), inset 0 1px 0 rgba(220,225,232,0.18), inset 0 0 0 1px rgba(220,225,232,0.08)',
-      tintOverlay: 'rgba(8,10,14,0.10)',
     },
   },
 
@@ -245,22 +142,177 @@ const DESIGNS = {
       tintOverlay: 'rgba(10,14,22,0.18)',
     },
   },
+
+  // =========================================================================
+  // G — Liquid Chrome
+  // Full-viewport WebGL chrome shader is mounted on top by <LiquidChromeCanvas/>
+  // when design === 'G'. The `bg` value here is only a fallback that shows
+  // through the slight blur margin around the canvas (and acts as the safety
+  // net if WebGL fails to initialize). Cards are dark translucent glass so
+  // light text from the onyx theme reads cleanly over the steel-tone surface.
+  // =========================================================================
+  G: {
+    name: 'Liquid Chrome',
+    swatch: '#B8BCC4',
+    day: {
+      bg: `
+        radial-gradient(ellipse 65% 55% at 50% 30%, rgba(180,188,200,0.45), transparent 70%),
+        linear-gradient(135deg, #2A2E36 0%, #1A1D22 50%, #0E1014 100%)
+      `,
+      cardBg: 'rgba(28, 32, 40, 0.52)',
+      cardBorder: 'rgba(200, 210, 222, 0.34)',
+      cardShadow: '0 20px 48px rgba(0,0,0,0.50), inset 0 1px 0 rgba(220,228,240,0.22), inset 0 0 0 1px rgba(220,228,240,0.10)',
+      tintOverlay: 'rgba(12,14,18,0.16)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 65% 55% at 50% 30%, rgba(140,150,165,0.36), transparent 70%),
+        linear-gradient(135deg, #16181E 0%, #0C0E12 50%, #06070A 100%)
+      `,
+      cardBg: 'rgba(18, 20, 26, 0.58)',
+      cardBorder: 'rgba(190, 200, 215, 0.28)',
+      cardShadow: '0 20px 48px rgba(0,0,0,0.60), inset 0 1px 0 rgba(210,218,232,0.18), inset 0 0 0 1px rgba(210,218,232,0.08)',
+      tintOverlay: 'rgba(6,8,12,0.22)',
+    },
+  },
+
+  // =========================================================================
+  // H — Mesh Gradient
+  // Full-viewport WebGL colored-blob shader mounted by <MeshGradientCanvas/>
+  // when design === 'H'. Cards are light glass by day (cream theme), dark
+  // glass by night (onyx theme), each tuned to read over a vivid surface.
+  // =========================================================================
+  H: {
+    name: 'Mesh Gradient',
+    swatch: '#C26EA8',
+    day: {
+      bg: `
+        radial-gradient(ellipse 80% 60% at 30% 30%, rgba(220,110,150,0.32), transparent 70%),
+        radial-gradient(ellipse 70% 55% at 75% 70%, rgba(100,150,230,0.32), transparent 70%),
+        linear-gradient(135deg, #1A1530 0%, #221A38 50%, #100C20 100%)
+      `,
+      cardBg: 'rgba(255, 255, 255, 0.52)',
+      cardBorder: 'rgba(255, 255, 255, 0.42)',
+      cardShadow: '0 22px 50px rgba(40, 20, 60, 0.32), inset 0 1px 0 rgba(255,255,255,0.65), inset 0 0 0 1px rgba(255,255,255,0.28)',
+      tintOverlay: 'rgba(255,255,255,0.06)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 80% 60% at 30% 30%, rgba(180,80,120,0.30), transparent 70%),
+        radial-gradient(ellipse 70% 55% at 75% 70%, rgba(70,110,180,0.30), transparent 70%),
+        linear-gradient(135deg, #0E0B1C 0%, #150F25 50%, #080612 100%)
+      `,
+      cardBg: 'rgba(28, 24, 50, 0.55)',
+      cardBorder: 'rgba(210, 190, 240, 0.30)',
+      cardShadow: '0 22px 50px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(220,200,255,0.18), inset 0 0 0 1px rgba(220,200,255,0.08)',
+      tintOverlay: 'rgba(10,8,20,0.20)',
+    },
+  },
+
+  // =========================================================================
+  // I — Storm Glass City
+  // Dark stormy night skyline behind wet glass; rain streaks, droplets,
+  // distant lightning, subtle mouse parallax on the skyline. Mounted by
+  // <StormGlassCityCanvas/>; `bg` is the safety-net behind it.
+  // =========================================================================
+  I: {
+    name: 'Storm Glass City',
+    swatch: '#7AA0C8',
+    day: {
+      bg: `
+        radial-gradient(ellipse 70% 50% at 50% 78%, rgba(70,110,150,0.28) 0%, transparent 70%),
+        linear-gradient(180deg, #0A1422 0%, #0F1828 60%, #122035 100%)
+      `,
+      cardBg: 'rgba(20, 28, 44, 0.55)',
+      cardBorder: 'rgba(180, 200, 230, 0.30)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(220,232,250,0.20), inset 0 0 0 1px rgba(220,232,250,0.08)',
+      tintOverlay: 'rgba(10,14,22,0.18)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 70% 50% at 50% 78%, rgba(70,110,150,0.22) 0%, transparent 70%),
+        linear-gradient(180deg, #060A14 0%, #0A111E 50%, #0E1828 100%)
+      `,
+      cardBg: 'rgba(18, 24, 38, 0.58)',
+      cardBorder: 'rgba(170, 190, 220, 0.28)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.60), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(6,10,18,0.22)',
+    },
+  },
+
+  // =========================================================================
+  // J — Blurry City Lights
+  // Soft-focus night lights, bokeh disks + water streaks on a wet camera lens.
+  // Mounted by <BlurryCityLightsCanvas/>.
+  // =========================================================================
+  J: {
+    name: 'Blurry City Lights',
+    swatch: '#F0A66E',
+    day: {
+      bg: `
+        radial-gradient(ellipse 90% 55% at 50% 95%, rgba(240,150,80,0.18) 0%, transparent 65%),
+        linear-gradient(180deg, #07080C 0%, #0A0B10 60%, #0D0E14 100%)
+      `,
+      cardBg: 'rgba(14, 18, 26, 0.55)',
+      cardBorder: 'rgba(220, 232, 250, 0.22)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.60), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(6,7,12,0.18)',
+    },
+    night: {
+      bg: `
+        radial-gradient(ellipse 90% 55% at 50% 95%, rgba(240,150,80,0.20) 0%, transparent 65%),
+        linear-gradient(180deg, #050608 0%, #07080C 50%, #0A0B10 100%)
+      `,
+      cardBg: 'rgba(12, 14, 20, 0.60)',
+      cardBorder: 'rgba(220, 232, 250, 0.22)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.65), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(4,5,9,0.24)',
+    },
+  },
+
+  // =========================================================================
+  // K — Dark Abstract Glass
+  // Black abstract glassmorphism: rounded glass beads, white/grey reflections,
+  // faint chromatic city-light tints, slow breathing motion. Mounted by
+  // <DarkAbstractGlassCanvas/>.
+  // =========================================================================
+  K: {
+    name: 'Dark Abstract Glass',
+    swatch: '#E6EAF0',
+    day: {
+      bg: `radial-gradient(ellipse 70% 55% at 50% 50%, #0E1014 0%, #06070A 70%, #020306 100%)`,
+      cardBg: 'rgba(18, 20, 26, 0.58)',
+      cardBorder: 'rgba(220, 232, 250, 0.28)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.60), inset 0 1px 0 rgba(220,232,250,0.20), inset 0 0 0 1px rgba(220,232,250,0.08)',
+      tintOverlay: 'rgba(4,6,10,0.22)',
+    },
+    night: {
+      bg: `radial-gradient(ellipse 70% 55% at 50% 50%, #0E1014 0%, #06070A 70%, #020306 100%)`,
+      cardBg: 'rgba(14, 16, 22, 0.62)',
+      cardBorder: 'rgba(220, 232, 250, 0.26)',
+      cardShadow: '0 22px 50px rgba(0,0,0,0.70), inset 0 1px 0 rgba(220,232,250,0.18), inset 0 0 0 1px rgba(220,232,250,0.06)',
+      tintOverlay: 'rgba(2,3,6,0.28)',
+    },
+  },
 };
 
-const DESIGN_ORDER = ['A', 'B', 'C', 'D', 'E', 'F'];
+const DESIGN_ORDER = ['A', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
 const MODE_ORDER   = ['auto', 'day', 'night'];
 
 // Which underlying app theme (`cream` = light, `onyx` = dark) pairs with each
 // glass design + day/night combo, so text always has contrast with the bg.
-// Pure White (A) is always light. Liquid Onyx (B) is always dark. Cream (C)
-// and Crystal Frost (D) flip with day/night.
+// Pure White (A) is always light. Liquid Chrome (G) is always dark (steel
+// tones — light text). Wet Glass Motion (E), Foggy Glass (F), and Mesh
+// Gradient (H) flip with day/night.
 const APP_THEME_FOR_GLASS = {
   A: { day: 'cream', night: 'cream' },
-  B: { day: 'onyx',  night: 'onyx'  },
-  C: { day: 'cream', night: 'onyx'  },
-  D: { day: 'cream', night: 'onyx'  },
   E: { day: 'cream', night: 'onyx'  },
   F: { day: 'cream', night: 'onyx'  },
+  G: { day: 'onyx',  night: 'onyx'  },
+  H: { day: 'cream', night: 'onyx'  },
+  I: { day: 'onyx',  night: 'onyx'  },
+  J: { day: 'onyx',  night: 'onyx'  },
+  K: { day: 'onyx',  night: 'onyx'  },
 };
 
 const isClockDay = () => {
@@ -269,18 +321,27 @@ const isClockDay = () => {
 };
 
 export function useGlassTheme() {
-  // Reads + writes go through the project's versioned storage envelope
-  // (see CURRENT_VERSIONS / MIGRATIONS entries in
-  // src/2026-05-16-utils-schema-migrations.js). The migration table validates
-  // stored values and falls back to defaults if they're invalid.
-  const [design, setDesign]     = useStoredState(STORAGE_DESIGN, 'A');
-  const [override, setOverride] = useStoredState(STORAGE_MODE, 'auto');
+  // Read via safeRead so the versioned `{__v, data}` envelope written by
+  // safeWrite (and the registered migrations in schema-migrations.js) is
+  // unwrapped correctly. Reading raw would hand back the literal JSON string
+  // and break effectiveMode → DESIGNS[design][effectiveMode] lookups.
+  const [design, setDesign] = useState(() => {
+    const stored = safeRead(STORAGE_DESIGN, 'A');
+    return DESIGNS[stored] ? stored : 'A';
+  });
+  const [override, setOverride] = useState(() => {
+    const stored = safeRead(STORAGE_MODE, 'auto');
+    return MODE_ORDER.includes(stored) ? stored : 'auto';
+  });
   const [clockDay, setClockDay] = useState(isClockDay);
 
   useEffect(() => {
     const id = setInterval(() => setClockDay(isClockDay()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => { safeWrite(STORAGE_DESIGN, design); }, [design]);
+  useEffect(() => { safeWrite(STORAGE_MODE, override); }, [override]);
 
   const effectiveMode = override === 'auto' ? (clockDay ? 'day' : 'night') : override;
 
@@ -498,6 +559,17 @@ function GlassBackdrop({ glass }) {
           linear-gradient(0deg,   rgba(0,0,0,0.10)   0%, transparent 30%);
       }
 
+      /* For designs G + H + I + J + K, the full-viewport canvas already
+         provides the entire image, so the sheen overlay would just wash it
+         out. Hide it. */
+      html[data-glass-active="true"][data-glass-design="G"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="H"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="I"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="J"] .aurum-glass-bg-sheen,
+      html[data-glass-active="true"][data-glass-design="K"] .aurum-glass-bg-sheen {
+        display: none;
+      }
+
       /* Slim, glass-themed scrollbar so it blends in. */
       html[data-glass-active="true"] ::-webkit-scrollbar-thumb {
         background: var(--glass-card-border);
@@ -512,6 +584,36 @@ function GlassBackdrop({ glass }) {
       <div className="aurum-glass-bg-sheen" aria-hidden="true" />
       {glass.design === 'F' && (
         <FoggyGlassCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'G' && (
+        <LiquidChromeCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'H' && (
+        <MeshGradientCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'I' && (
+        <StormGlassCityCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'J' && (
+        <BlurryCityLightsCanvas
+          mode={glass.effectiveMode}
+          aria-hidden="true"
+        />
+      )}
+      {glass.design === 'K' && (
+        <DarkAbstractGlassCanvas
           mode={glass.effectiveMode}
           aria-hidden="true"
         />
@@ -605,7 +707,7 @@ function GlassControlButtons({ glass, tk }) {
         <ModeIcon mode={glass.mode} effective={glass.effectiveMode} />
       </button>
 
-      {/* Design picker: A → B → C → D → A */}
+      {/* Design picker: A → E → F → G → H → A */}
       <button
         onClick={glass.cycleDesign}
         aria-label={`Glass design: ${glass.design} — ${glass.meta.name}`}

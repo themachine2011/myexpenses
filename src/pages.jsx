@@ -9,6 +9,7 @@ import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-schedule
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
 import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
+import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1186,10 +1187,171 @@ const BudgetsPanel = () => {
 // Compact Savings panel for the Dashboard. Replaces the old standalone Savings
 // tab — no luxury-car picture, just the numbers and controls. Lists goals when
 // the user has created any, otherwise shows an empty hint.
+//
+// USD secondary text shows next to every BRL value, driven by the live fxRate
+// from context (AwesomeAPI USD/BRL, refreshed periodically). If the rate is
+// unavailable (first run offline), USD lines are hidden gracefully — the
+// existing fxRate / fmtCurrency pipeline is reused, no second conversion
+// system is introduced. BRL is forced as the primary currency inside this
+// section regardless of the global currency tweak (per the section spec).
+
+// Single goal card — extracted as a module-level component so each goal's
+// custom-amount input keeps its own state and isn't reset every render of
+// the parent panel.
+const GoalCard = ({ goal, themeTokens, fmtBrl, fmtUsd, onAllocate, onReset, onRemove }) => {
+  const [custom, setCustom] = useState('');
+  const customNum = Number(custom);
+  const customValid = custom !== '' && Number.isFinite(customNum) && customNum > 0;
+
+  const allocated = Number(goal.allocated) || 0;
+  const target    = Number(goal.target)    || 0;
+  const { pct, monthsToTarget } = goalProgress(goal);
+  const remaining = Math.max(0, target - allocated);
+
+  const addCustom = () => {
+    if (!customValid) return;
+    onAllocate(goal, customNum);
+    setCustom('');
+  };
+  const onKey = (e) => { if (e.key === 'Enter' && customValid) addCustom(); };
+
+  const usdAllocated = fmtUsd(allocated);
+  const usdTarget    = fmtUsd(target);
+  const usdRemaining = fmtUsd(remaining);
+
+  return (
+    <div style={{
+      background: themeTokens.surface2,
+      border: `1px solid ${themeTokens.hairline}`,
+      borderRadius: 14, padding: 14,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div style={{ color: themeTokens.text, fontSize: 14, fontWeight: 600 }}>{goal.name}</div>
+        <button onClick={() => onRemove(goal.id)}
+          style={{ background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+          Remove
+        </button>
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: themeTokens.text, marginTop: 6 }}>
+        {fmtBrl(allocated)} <span style={{ color: themeTokens.textDim, fontSize: 12, fontWeight: 400 }}>/ {fmtBrl(target)}</span>
+      </div>
+      {usdAllocated && (
+        <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 2 }}>
+          {usdAllocated} <span style={{ opacity: 0.7 }}>/ {usdTarget}</span>
+        </div>
+      )}
+      <div style={{ position: 'relative', height: 6, background: themeTokens.surface, borderRadius: 999, overflow: 'hidden', marginTop: 10 }}>
+        <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: themeTokens.accent, transition: 'width 400ms ease' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+          {pct.toFixed(1)}% · {fmtBrl(remaining)}{usdRemaining ? ` (${usdRemaining})` : ''} left
+        </span>
+        {goal.due && monthsToTarget != null && (
+          <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+            {monthsToTarget >= 0 ? `${monthsToTarget}mo` : 'overdue'}
+          </span>
+        )}
+      </div>
+
+      {/* Quick-add chips: R$ 100,00 and R$ 500,00. Premium feel via hover lift
+          + accent-tinted background. Each chip shows its USD equivalent so the
+          user always sees both currencies before tapping. */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        {[100, 500].map((v) => {
+          const usd = fmtUsd(v);
+          return (
+            <button key={v} onClick={() => onAllocate(goal, v)}
+              style={{
+                padding: '8px 12px', borderRadius: 12,
+                border: `1px solid ${themeTokens.hairline2}`,
+                background: 'transparent', color: themeTokens.text,
+                fontFamily: 'var(--font-mono)', fontSize: 11,
+                cursor: 'pointer',
+                transition: 'all 180ms ease',
+                lineHeight: 1.2,
+                textAlign: 'left',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = themeTokens.accent;
+                e.currentTarget.style.background = `${themeTokens.accent}1A`;
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = themeTokens.hairline2;
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}>
+              <div style={{ fontWeight: 700 }}>+ {fmtBrl(v)}</div>
+              {usd && <div style={{ fontSize: 9, color: themeTokens.textDim, marginTop: 2 }}>{usd}</div>}
+            </button>
+          );
+        })}
+        <button onClick={() => onReset(goal)}
+          disabled={allocated === 0}
+          style={{
+            padding: '8px 12px', borderRadius: 12,
+            border: `1px solid ${themeTokens.hairline2}`,
+            background: 'transparent', color: themeTokens.textDim,
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            cursor: allocated === 0 ? 'not-allowed' : 'pointer',
+            opacity: allocated === 0 ? 0.4 : 1,
+            alignSelf: 'stretch',
+          }}>Reset</button>
+      </div>
+
+      {/* Custom amount input. Accepts any positive BRL value; Add button is
+          disabled until the value parses as a finite number > 0. Live USD
+          preview shows beneath while typing. */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="Custom amount (R$)"
+          style={{
+            flex: 1, minWidth: 0,
+            background: 'transparent',
+            border: `1px solid ${themeTokens.hairline2}`, borderRadius: 10,
+            padding: '7px 12px', color: themeTokens.text,
+            fontFamily: 'var(--font-mono)', fontSize: 12, outline: 'none',
+          }} />
+        <button
+          onClick={addCustom}
+          disabled={!customValid}
+          style={{
+            padding: '8px 14px', borderRadius: 999,
+            border: 'none',
+            background: customValid ? themeTokens.accent : themeTokens.surface,
+            color: customValid ? '#0B0B0D' : themeTokens.textDim,
+            fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 10,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            cursor: customValid ? 'pointer' : 'not-allowed',
+            opacity: customValid ? 1 : 0.5,
+            transition: 'all 180ms ease',
+            whiteSpace: 'nowrap',
+          }}>
+          Add
+        </button>
+      </div>
+      {customValid && fmtUsd(customNum) && (
+        <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, marginTop: 4 }}>
+          ≈ {fmtUsd(customNum)}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SavingsPanel = () => {
   const {
-    themeTokens, fmt, savingsTotal, addSaving,
-    goals, addGoal, updateGoal, deleteGoal,
+    themeTokens, savingsTotal, addSaving,
+    goals, addGoal, updateGoal, deleteGoal, fxRate,
   } = useAppContext();
 
   const [depositAmt, setDepositAmt] = useState('');
@@ -1201,6 +1363,21 @@ const SavingsPanel = () => {
   const totalAllocated = (goals || []).reduce((s, g) => s + (Number(g.allocated) || 0), 0);
   const unallocated    = Math.max(0, savingsTotal - totalAllocated);
 
+  // BRL is the primary currency in the Goals section regardless of the global
+  // currency tweak. Use fmtCurrency directly so the panel doesn't flip when
+  // the user toggles the wallet to USD.
+  const fmtBrl = (v) => fmtCurrency(v, 'BRL');
+
+  // BRL → USD secondary text. Returns `US$ 1,234.56` or null when fxRate is
+  // unavailable. Reuses the live AwesomeAPI rate from context — no second
+  // conversion system.
+  const fmtUsd = (brl) => {
+    const rate = Number(fxRate);
+    if (!Number.isFinite(rate) || rate <= 0) return null;
+    const usd = (Number(brl) || 0) / rate;
+    return `US$ ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd)}`;
+  };
+
   const inputStyle = {
     background: 'transparent',
     border: `1px solid ${themeTokens.hairline2}`, borderRadius: 10,
@@ -1208,19 +1385,35 @@ const SavingsPanel = () => {
     fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
   };
 
+  // New-goal validation:
+  // - name must be non-empty after trim (rejects whitespace-only)
+  // - target must parse as a finite number > 0 (rejects '', 'abc', 0, -5)
+  const trimmedName  = newName.trim();
+  const newTargetNum = Number(newTarget);
+  const nameValid    = trimmedName.length > 0;
+  const targetValid  = newTarget !== '' && Number.isFinite(newTargetNum) && newTargetNum > 0;
+  const newGoalValid = nameValid && targetValid;
+
   const submitNew = () => {
-    if (!newName || !newTarget) return;
-    addGoal({ name: newName, target: Number(newTarget), due: newDue || null, allocated: 0 });
+    if (!newGoalValid) return;
+    addGoal({ name: trimmedName, target: newTargetNum, due: newDue || null, allocated: 0 });
     setNewName(''); setNewTarget(''); setNewDue(''); setShowNewGoal(false);
   };
 
+  // Direct allocation: increments g.allocated by `delta` (>=0 floor). No
+  // longer constrained by the savings pool — users add money directly to
+  // their goal over time.
   const allocate = (g, delta) => {
     const curr = Number(g.allocated) || 0;
     const next = Math.max(0, curr + delta);
-    const newTotal = totalAllocated - curr + next;
-    if (newTotal > savingsTotal + 0.001) return;
     updateGoal(g.id, { allocated: next });
   };
+  const resetGoal = (g) => updateGoal(g.id, { allocated: 0 });
+
+  const usdBalance       = fmtUsd(savingsTotal);
+  const usdAllocated     = fmtUsd(totalAllocated);
+  const usdUnallocated   = fmtUsd(unallocated);
+  const usdTargetPreview = targetValid ? fmtUsd(newTargetNum) : null;
 
   return (
     <Surface>
@@ -1230,16 +1423,27 @@ const SavingsPanel = () => {
           <div style={{
             fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 38,
             color: themeTokens.text, letterSpacing: '-0.02em', marginTop: 4,
-          }}>{fmt(savingsTotal)}</div>
+          }}>{fmtBrl(savingsTotal)}</div>
+          {usdBalance && (
+            <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 11, marginTop: 2 }}>
+              {usdBalance}
+            </div>
+          )}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'baseline' }}>
           <div>
             <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Allocated</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text, marginTop: 4 }}>{fmt(totalAllocated)}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text, marginTop: 4 }}>{fmtBrl(totalAllocated)}</div>
+            {usdAllocated && (
+              <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 2 }}>{usdAllocated}</div>
+            )}
           </div>
           <div>
             <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Unallocated</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.accent, marginTop: 4 }}>{fmt(unallocated)}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.accent, marginTop: 4 }}>{fmtBrl(unallocated)}</div>
+            {usdUnallocated && (
+              <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 2 }}>{usdUnallocated}</div>
+            )}
           </div>
         </div>
       </div>
@@ -1283,86 +1487,46 @@ const SavingsPanel = () => {
           </div>
           <div>
             <Label tk={themeTokens}>Target (R$)</Label>
-            <input type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)}
+            <input type="number" inputMode="decimal" min="0" step="0.01"
+              value={newTarget} onChange={(e) => setNewTarget(e.target.value)}
               placeholder="0.00" style={{ ...inputStyle, width: '100%', fontFamily: 'var(--font-mono)' }} />
+            {usdTargetPreview && (
+              <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, marginTop: 4 }}>
+                ≈ {usdTargetPreview}
+              </div>
+            )}
           </div>
           <div>
             <Label tk={themeTokens}>Target date (optional)</Label>
             <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
               style={{ ...inputStyle, width: '100%', fontFamily: 'var(--font-mono)', colorScheme: themeTokens.isDark ? 'dark' : 'light' }} />
           </div>
-          <button onClick={submitNew} disabled={!newName || !newTarget}
+          <button onClick={submitNew} disabled={!newGoalValid}
             style={{
               padding: '10px 16px', border: 'none', borderRadius: 999,
               background: themeTokens.accent, color: '#0B0B0D',
               fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 10,
               letterSpacing: '0.18em', textTransform: 'uppercase',
-              cursor: (!newName || !newTarget) ? 'not-allowed' : 'pointer',
-              opacity: (!newName || !newTarget) ? 0.5 : 1, whiteSpace: 'nowrap',
+              cursor: newGoalValid ? 'pointer' : 'not-allowed',
+              opacity: newGoalValid ? 1 : 0.5, whiteSpace: 'nowrap',
             }}>Add goal</button>
         </div>
       )}
 
       {(goals || []).length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${themeTokens.hairline}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-          {goals.map((g) => {
-            const { pct, monthsToTarget } = goalProgress(g);
-            const remaining = Math.max(0, Number(g.target || 0) - Number(g.allocated || 0));
-            return (
-              <div key={g.id} style={{
-                background: themeTokens.surface2,
-                border: `1px solid ${themeTokens.hairline}`,
-                borderRadius: 14, padding: 14,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div style={{ color: themeTokens.text, fontSize: 14, fontWeight: 600 }}>{g.name}</div>
-                  <button onClick={() => deleteGoal(g.id)}
-                    style={{ background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                    Remove
-                  </button>
-                </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: themeTokens.text, marginTop: 6 }}>
-                  {fmt(Number(g.allocated) || 0)} <span style={{ color: themeTokens.textDim, fontSize: 12, fontWeight: 400 }}>/ {fmt(Number(g.target) || 0)}</span>
-                </div>
-                <div style={{ position: 'relative', height: 6, background: themeTokens.surface, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
-                  <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: themeTokens.accent, transition: 'width 400ms ease' }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                  <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>{pct.toFixed(1)}% · {fmt(remaining)} left</span>
-                  {g.due && monthsToTarget != null && (
-                    <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                      {monthsToTarget >= 0 ? `${monthsToTarget}mo` : 'overdue'}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                  {[50, 100, 500].map((v) => (
-                    <button key={v} onClick={() => allocate(g, v)} disabled={unallocated < v}
-                      style={{
-                        padding: '4px 10px', borderRadius: 999,
-                        border: `1px solid ${themeTokens.hairline2}`,
-                        background: 'transparent', color: themeTokens.textDim,
-                        fontFamily: 'var(--font-mono)', fontSize: 9,
-                        letterSpacing: '0.18em', textTransform: 'uppercase',
-                        cursor: unallocated < v ? 'not-allowed' : 'pointer',
-                        opacity: unallocated < v ? 0.4 : 1,
-                      }}>+{v}</button>
-                  ))}
-                  <button onClick={() => allocate(g, -(Number(g.allocated) || 0))}
-                    disabled={(Number(g.allocated) || 0) === 0}
-                    style={{
-                      padding: '4px 10px', borderRadius: 999,
-                      border: `1px solid ${themeTokens.hairline2}`,
-                      background: 'transparent', color: themeTokens.textDim,
-                      fontFamily: 'var(--font-mono)', fontSize: 9,
-                      letterSpacing: '0.18em', textTransform: 'uppercase',
-                      cursor: (Number(g.allocated) || 0) === 0 ? 'not-allowed' : 'pointer',
-                      opacity: (Number(g.allocated) || 0) === 0 ? 0.4 : 1,
-                    }}>Reset</button>
-                </div>
-              </div>
-            );
-          })}
+          {goals.map((g) => (
+            <GoalCard
+              key={g.id}
+              goal={g}
+              themeTokens={themeTokens}
+              fmtBrl={fmtBrl}
+              fmtUsd={fmtUsd}
+              onAllocate={allocate}
+              onReset={resetGoal}
+              onRemove={deleteGoal}
+            />
+          ))}
         </div>
       )}
     </Surface>
@@ -1427,6 +1591,10 @@ export const Dashboard = () => {
           valueColor={themeTokens.negative}
           yoy={yoyFixed} />
       </div>
+
+      <PanelErrorBoundary label="Financial Statements">
+        <DashboardFinancialStatements />
+      </PanelErrorBoundary>
 
       <PanelErrorBoundary label="Monthly Insights">
         <MonthlyInsights transactions={transactions} savingsTotal={savingsTotal} goalAmount={goalAmount}
@@ -1527,393 +1695,16 @@ export const Dashboard = () => {
   );
 };
 
-const cardInstallmentInfo = (tx) => {
-  const match = String(tx.description || '').match(/(?:·|\u00b7)\s*(\d+)\/(\d+)\s*$/);
-  if (match) return `Installment ${match[1]}/${match[2]}`;
-  return tx.groupId ? 'Installment schedule' : 'Single purchase';
-};
-
-const cardDisplayDescription = (tx) =>
-  String(tx.description || '').replace(/\s*(?:·|\u00b7)\s*\d+\/\d+\s*$/, '');
-
-const buildCardPurchasesHtml = ({ card, rows, fmt }) => {
-  const escapeHtml = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-  const now = new Date();
-  const title = `${card.name} · Recent on this card`;
-  const visaBilling = card.method === 'VISA Mercado Pago'
-    ? `<div class="billing-box">
-        <div class="billing-label">Closing / payment date</div>
-        <div class="billing-date">15th of every month</div>
-        <div class="billing-note">Billing cycle date: 15th monthly</div>
-      </div>`
-    : '';
-
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const initialRows = rows.filter((tx) => new Date(tx.date) >= currentMonthStart);
-  const bodyRows = initialRows.length ? initialRows.map((tx) => {
-    const date = new Date(tx.date);
-    const future = date > now;
-    const installment = cardInstallmentInfo(tx);
-    return `
-      <tr class="${future ? 'future' : ''}">
-        <td>${escapeHtml(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }))}</td>
-        <td>
-          <div class="desc">${escapeHtml(cardDisplayDescription(tx))}</div>
-          <div class="meta">${escapeHtml(categoryLabel(tx.category))} · ${escapeHtml(tx.paymentMethod)}</div>
-        </td>
-        <td>${escapeHtml(installment)}</td>
-        <td>${future ? 'Future scheduled charge' : 'Current month purchase'}</td>
-        <td class="amount">${escapeHtml(fmt(tx.amount))}</td>
-      </tr>`;
-  }).join('') : '<tr><td colspan="5" class="empty">No current purchases or future / pending purchases on this card.</td></tr>';
-  const normalizedRows = rows.map((tx) => ({
-    id: tx.id,
-    date: tx.date,
-    description: cardDisplayDescription(tx),
-    category: categoryLabel(tx.category),
-    paymentMethod: tx.paymentMethod,
-    amount: Number(tx.amount) || 0,
-    amountLabel: fmt(tx.amount),
-    installment: cardInstallmentInfo(tx),
-  }));
-  const rowsJson = JSON.stringify(normalizedRows).replace(/</g, '\\u003c');
-
-  const html = `<!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${escapeHtml(title)}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            background: #121212;
-            color: #F2EDE6;
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          }
-          main { max-width: 1180px; margin: 0 auto; padding: 32px; }
-          header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 24px;
-            border-bottom: 1px solid #333333;
-            padding-bottom: 20px;
-          }
-          .eyebrow {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 11px;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-          }
-          h1 { margin: 8px 0 0; font-size: 34px; letter-spacing: -0.02em; }
-          .summary { margin-top: 10px; color: #999999; font-size: 14px; }
-          .filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            margin: 0 0 18px;
-            padding: 14px;
-            border: 1px solid #333333;
-            border-radius: 16px;
-            background: #1E1E1E;
-          }
-          .filter-btn, .custom-input {
-            border: 1px solid #3A3A3A;
-            border-radius: 999px;
-            background: transparent;
-            color: #999999;
-            padding: 8px 12px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-          }
-          .filter-btn { cursor: pointer; transition: all 180ms ease; }
-          .filter-btn.active {
-            border-color: #E0A899;
-            background: #E0A899;
-            color: #0B0B0D;
-          }
-          .custom-input {
-            border-radius: 10px;
-            color-scheme: dark;
-            display: none;
-          }
-          .filters.custom .custom-input { display: inline-block; }
-          .totals {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
-            margin: 0 0 18px;
-          }
-          .metric {
-            border: 1px solid #333333;
-            border-radius: 14px;
-            padding: 12px 14px;
-            background: #1E1E1E;
-          }
-          .metric-label {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-          }
-          .metric-value { margin-top: 4px; font-size: 20px; font-weight: 700; }
-          .billing-box {
-            min-width: 260px;
-            border: 1px solid #E0A899;
-            border-radius: 16px;
-            padding: 14px 16px;
-            text-align: right;
-            background: rgba(224, 168, 153, 0.10);
-          }
-          .billing-label, .billing-note {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-          }
-          .billing-date { margin: 4px 0; color: #F2EDE6; font-size: 22px; font-weight: 700; }
-          h2 {
-            margin: 24px 0 10px;
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 11px;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-          }
-          table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 16px; }
-          th, td { padding: 14px 16px; border-bottom: 1px solid #2A2A2A; text-align: left; vertical-align: top; }
-          th {
-            color: #999999;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            background: #1E1E1E;
-          }
-          tr.future td { color: #E0B33B; }
-          tr.pending td { color: #E0B33B; }
-          .desc { font-weight: 600; color: inherit; }
-          .meta {
-            margin-top: 4px;
-            color: #777777;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-          }
-          .amount { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-          .empty { text-align: center; color: #999999; padding: 32px; }
-          .section { margin-top: 8px; }
-          @media (max-width: 760px) {
-            main { padding: 20px; }
-            header { display: grid; }
-            .billing-box { text-align: left; width: 100%; }
-            table { display: block; overflow-x: auto; white-space: nowrap; }
-          }
-        </style>
-      </head>
-      <body>
-        <main>
-          <header>
-            <div>
-              <div class="eyebrow">Recent on this card</div>
-              <h1>${escapeHtml(card.name)}</h1>
-              <div class="summary">Current purchases of the month and Future / Pending purchases</div>
-            </div>
-            ${visaBilling}
-          </header>
-          <section id="filters" class="filters">
-            <button class="filter-btn active" data-filter="currentFuture">Current + Future / Pending</button>
-            <button class="filter-btn" data-filter="last30">Last 30 days</button>
-            <button class="filter-btn" data-filter="cycle15">15th last month &rarr; 15th this month</button>
-            <button class="filter-btn" data-filter="last60">Last 60 days</button>
-            <button class="filter-btn" data-filter="last90">Last 90 days</button>
-            <button class="filter-btn" data-filter="custom">Custom period</button>
-            <input id="customFrom" class="custom-input" type="date" />
-            <input id="customTo" class="custom-input" type="date" />
-          </section>
-          <section class="totals">
-            <div class="metric">
-              <div class="metric-label">Transactions</div>
-              <div id="countTotal" class="metric-value">0</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Current period</div>
-              <div id="currentTotal" class="metric-value">R$ 0,00</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Future / Pending</div>
-              <div id="futureTotal" class="metric-value">R$ 0,00</div>
-            </div>
-          </section>
-          <section class="section">
-          <h2>Current month purchases</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Transaction date</th>
-                <th>Description</th>
-                <th>Installment information</th>
-                <th>Schedule</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody id="currentRows">${bodyRows}</tbody>
-          </table>
-          </section>
-          <section class="section">
-          <h2>Future / Pending purchases</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Transaction date</th>
-                <th>Description</th>
-                <th>Installment information</th>
-                <th>Schedule</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody id="futureRows"></tbody>
-          </table>
-          </section>
-        </main>
-        <script>
-          const rows = ${rowsJson};
-          const today = new Date();
-          today.setHours(23, 59, 59, 999);
-          const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-          const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-          const filterBox = document.getElementById('filters');
-          const customFrom = document.getElementById('customFrom');
-          const customTo = document.getElementById('customTo');
-          let activeFilter = 'currentFuture';
-
-          const escapeText = (value) => String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-
-          const dayStart = (date) => {
-            const d = new Date(date);
-            d.setHours(0, 0, 0, 0);
-            return d;
-          };
-          const addDays = (date, days) => {
-            const d = dayStart(date);
-            d.setDate(d.getDate() + days);
-            return d;
-          };
-          const cycle15Range = () => ({
-            from: new Date(today.getFullYear(), today.getMonth() - 1, 15),
-            to: new Date(today.getFullYear(), today.getMonth(), 15, 23, 59, 59, 999),
-          });
-          const activeRange = () => {
-            if (activeFilter === 'last30') return { from: addDays(today, -30), to: today };
-            if (activeFilter === 'last60') return { from: addDays(today, -60), to: today };
-            if (activeFilter === 'last90') return { from: addDays(today, -90), to: today };
-            if (activeFilter === 'cycle15') return cycle15Range();
-            if (activeFilter === 'custom') {
-              return {
-                from: customFrom.value ? dayStart(customFrom.value) : null,
-                to: customTo.value ? new Date(customTo.value + 'T23:59:59.999') : null,
-              };
-            }
-            return { from: currentMonthStart, to: null };
-          };
-          const visibleRows = () => {
-            const range = activeRange();
-            return rows.filter((row) => {
-              const d = new Date(row.date);
-              if (range.from && d < range.from) return false;
-              if (range.to && d > range.to) return false;
-              return true;
-            }).sort((a, b) => new Date(a.date) - new Date(b.date));
-          };
-          const rowHtml = (row, label, cls) => {
-            const date = new Date(row.date);
-            return '<tr class="' + cls + '">' +
-              '<td>' + escapeText(date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })) + '</td>' +
-              '<td><div class="desc">' + escapeText(row.description) + '</div><div class="meta">' + escapeText(row.category) + ' · ' + escapeText(row.paymentMethod) + '</div></td>' +
-              '<td>' + escapeText(row.installment) + '</td>' +
-              '<td>' + label + '</td>' +
-              '<td class="amount">' + escapeText(row.amountLabel) + '</td>' +
-            '</tr>';
-          };
-          const emptyHtml = (message) => '<tr><td colspan="5" class="empty">' + escapeText(message) + '</td></tr>';
-          const render = () => {
-            filterBox.classList.toggle('custom', activeFilter === 'custom');
-            const rowsInRange = visibleRows();
-            const currentRows = rowsInRange.filter((row) => new Date(row.date) <= today);
-            const futureRows = rowsInRange.filter((row) => new Date(row.date) > today);
-            document.getElementById('currentRows').innerHTML = currentRows.length
-              ? currentRows.map((row) => rowHtml(row, 'Current purchase', '')).join('')
-              : emptyHtml('No current purchases in this filter.');
-            document.getElementById('futureRows').innerHTML = futureRows.length
-              ? futureRows.map((row) => rowHtml(row, 'Future / Pending scheduled charge', 'pending')).join('')
-              : emptyHtml('No future / pending purchases in this filter.');
-            const currentAmount = currentRows.reduce((sum, row) => sum + row.amount, 0);
-            const futureAmount = futureRows.reduce((sum, row) => sum + row.amount, 0);
-            document.getElementById('countTotal').textContent = String(rowsInRange.length);
-            document.getElementById('currentTotal').textContent = money.format(currentAmount);
-            document.getElementById('futureTotal').textContent = money.format(futureAmount);
-          };
-          document.querySelectorAll('[data-filter]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-              activeFilter = btn.dataset.filter;
-              document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn));
-              render();
-            });
-          });
-          customFrom.addEventListener('change', render);
-          customTo.addEventListener('change', render);
-          render();
-        </script>
-      </body>
-    </html>`;
-  return html;
-};
-
-const createCardPurchasesUrl = (args) =>
-  URL.createObjectURL(new Blob([buildCardPurchasesHtml(args)], { type: 'text/html;charset=utf-8' }));
-
-const openCardPurchasesWindow = (args) => {
-  const html = buildCardPurchasesHtml(args);
-  const opened = window.open('', '_blank');
-  if (opened) {
-    opened.document.open();
-    opened.document.write(html);
-    opened.document.close();
-    opened.focus?.();
-    return;
-  }
-  const url = createCardPurchasesUrl(args);
-  window.open(url, '_blank');
-  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-};
-
-const CardRecentPurchasesLink = ({ card, rows, fmt, themeTokens }) => {
+// Switches the app to the in-app CardPurchasesPage for this card. Renders
+// inside the main app shell so it inherits the GlassTheme wallpaper, theme
+// tokens, and fonts automatically — no new browser tab, no popup blockers,
+// no document.write fragility.
+const CardRecentPurchasesLink = ({ card, themeTokens }) => {
+  const { setFocusedCardMethod, setView } = useAppContext();
   const handleClick = (e) => {
     e.preventDefault();
-    try {
-      openCardPurchasesWindow({ card, rows, fmt });
-    } catch (_) {}
+    setFocusedCardMethod(card.method);
+    setView('cardPurchases');
   };
   return (
     <button
@@ -1948,11 +1739,7 @@ export const CardsPage = () => {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 28 }}>
-      {cards.map((c, i) => {
-        const cardRows = (c.stats?.txs || [])
-          .slice()
-          .sort((a, b) => new Date(a.date) - new Date(b.date));
-        return (
+      {cards.map((c, i) => (
         <motion.div key={i}
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}>
@@ -1981,7 +1768,7 @@ export const CardsPage = () => {
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${themeTokens.hairline}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
               <Eyebrow>Recent on this card</Eyebrow>
-              <CardRecentPurchasesLink card={c} rows={cardRows} fmt={fmt} themeTokens={themeTokens} />
+              <CardRecentPurchasesLink card={c} themeTokens={themeTokens} />
             </div>
             {(c.stats?.txs || []).slice(0, 4).map((tx) =>
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
@@ -1991,16 +1778,18 @@ export const CardsPage = () => {
             )}
           </div>
         </motion.div>
-      );
-      })}
+      ))}
     </div>
   );
 };
 
 // Full-page view of one card's purchases. Splits Current (already happened up
 // to today) and Future / Pending (dated after today). Filters: 30D / 60D / 90D
-// / Custom date range. Opens in a separate browser tab via the URL params
-// `?card=<method>&view=cardPurchases` (see CardRecentPurchasesLink + App.jsx).
+// / Custom date range. Routed in-app by CardRecentPurchasesLink setting
+// `view = 'cardPurchases'` + `focusedCardMethod` in AppContext (see App.jsx
+// switch case). Inherits the GlassTheme wallpaper because it renders inside
+// the main app shell. URL params `?card=<method>&view=cardPurchases` still
+// bootstrap the same view if someone opens that link directly (App.jsx:64).
 export const CardPurchasesPage = () => {
   const {
     transactions, themeTokens, fmt,
@@ -2050,9 +1839,13 @@ export const CardPurchasesPage = () => {
     return transactions.filter((t) => {
       if (t.paymentMethod !== focusedCardMethod) return false;
       const d = new Date(t.date);
-      // Future-dated rows: always include in "preset" filters; respect bounds in custom.
+      // Future-dated rows: always include in "preset" filters (includeFuture
+      // is true). In a custom range the user picked an explicit window, so
+      // honor BOTH bounds — otherwise a future From date would still let
+      // scheduled charges between today and From leak in.
       if (d > today) {
         if (range.includeFuture) return true;
+        if (range.from && d < range.from) return false;
         if (range.to && d > range.to) return false;
         return true;
       }
