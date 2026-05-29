@@ -166,7 +166,15 @@ const FormalSection = ({ title, lines, total, totalLabel, totalColor, tk }) => (
   </div>
 );
 
-export const DashboardFinancialStatements = () => {
+const FS_PRIVACY_MASK_STYLE = (blurred) => ({
+  transition: 'filter 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)',
+  filter: blurred ? 'blur(14px) saturate(140%)' : 'blur(0px)',
+  opacity: blurred ? 0.78 : 1,
+  userSelect: blurred ? 'none' : 'auto',
+  willChange: 'filter',
+});
+
+export const DashboardFinancialStatements = ({ blurred = false }) => {
   const {
     transactions, themeTokens: tk, fmt,
     savingsTotal, netWorthState, debtTotals,
@@ -240,6 +248,7 @@ export const DashboardFinancialStatements = () => {
         </button>
       </div>
 
+      <div style={FS_PRIVACY_MASK_STYLE(blurred)} aria-hidden={blurred || undefined}>
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14,
       }}>
@@ -343,6 +352,7 @@ export const DashboardFinancialStatements = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.div>
   );
 };

@@ -549,6 +549,11 @@ export const useAppState = () => {
   const [cashTimeframe, setCashTimeframe] = useState('current');
   const [defaultSplitMode, setDefaultSplitMode] = useState(false);
   const [focusedCardMethod, setFocusedCardMethod] = useState(null);
+  // Privacy/blur toggle — shared across Dashboard (Liquid Income, Cash Flow,
+  // Financial Statements) and Graph tab (Cash Flow, Income). Display only —
+  // never touches stored financial data.
+  const [privacyHidden, setPrivacyHidden] = useState(false);
+  const togglePrivacy = () => setPrivacyHidden((v) => !v);
 
   useEffect(() => {
     setTransactions((prev) => {
@@ -906,6 +911,7 @@ export const useAppState = () => {
     nwHistory,
     defaultSplitMode, setDefaultSplitMode,
     focusedCardMethod, setFocusedCardMethod,
+    privacyHidden, togglePrivacy, setPrivacyHidden,
     // Bound calc helpers
     suggestCategory: (desc) => suggestCategory(desc, rules),
     budgetUsage:     (cat)  => budgetUsage(transactions, cat, budgets),

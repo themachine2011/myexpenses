@@ -655,28 +655,50 @@ export const LuxurySedanGoal = () => {
   );
 };
 
-export const KPICard = ({ label, value, delta, positive, valueColor, yoy }) => {
+// Shared blur/privacy mask style — used by KPICard, Financial Statements,
+// and Graph tab so every privacy-masked area animates identically.
+export const privacyMaskStyle = (blurred) => ({
+  transition: 'filter 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)',
+  filter: blurred ? 'blur(14px) saturate(140%)' : 'blur(0px)',
+  opacity: blurred ? 0.78 : 1,
+  userSelect: blurred ? 'none' : 'auto',
+  willChange: 'filter',
+});
+
+export const KPICard = ({ label, value, delta, positive, valueColor, yoy, blurred, onClick, clickHint }) => {
   const { themeTokens } = useAppContext();
   const positive_ = positive ?? delta >= 0;
+  const maskedStyle = privacyMaskStyle(blurred);
   return (
-    <Surface>
+    <Surface onClick={onClick}>
       <Eyebrow>{label}</Eyebrow>
-      <Display size={32} color={valueColor}>{value}</Display>
-      {delta !== undefined &&
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12,
-          color: positive_ ? themeTokens.positive : themeTokens.negative }}>
-          {positive_ ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
-          <span style={{ color: themeTokens.textDim }}>vs last month</span>
-        </div>
-      }
-      {yoy && (
-        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11,
-          color: !yoy.hasPrior ? themeTokens.textFaint : (yoy.pct >= 0 ? themeTokens.positive : themeTokens.negative) }}>
-          {yoy.hasPrior
-            ? <>{yoy.pct >= 0 ? '↑' : '↓'} {Math.abs(yoy.pct).toFixed(1)}% <span style={{ color: themeTokens.textDim }}>YoY</span></>
-            : <span style={{ color: themeTokens.textFaint }}>— YoY (no prior data)</span>}
-        </div>
-      )}
+      <div
+        style={maskedStyle}
+        aria-hidden={blurred || undefined}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-label={onClick ? (blurred ? clickHint?.show : clickHint?.hide) : undefined}
+        onKeyDown={onClick ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+        } : undefined}
+      >
+        <Display size={32} color={valueColor}>{value}</Display>
+        {delta !== undefined &&
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12,
+            color: positive_ ? themeTokens.positive : themeTokens.negative }}>
+            {positive_ ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
+            <span style={{ color: themeTokens.textDim }}>vs last month</span>
+          </div>
+        }
+        {yoy && (
+          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11,
+            color: !yoy.hasPrior ? themeTokens.textFaint : (yoy.pct >= 0 ? themeTokens.positive : themeTokens.negative) }}>
+            {yoy.hasPrior
+              ? <>{yoy.pct >= 0 ? '↑' : '↓'} {Math.abs(yoy.pct).toFixed(1)}% <span style={{ color: themeTokens.textDim }}>YoY</span></>
+              : <span style={{ color: themeTokens.textFaint }}>— YoY (no prior data)</span>}
+          </div>
+        )}
+      </div>
     </Surface>
   );
 };
@@ -1534,7 +1556,7 @@ const SavingsPanel = () => {
 };
 
 export const Dashboard = () => {
-  const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor } = useAppContext();
+  const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor, privacyHidden, togglePrivacy } = useAppContext();
   const [timeRange, setTimeRange] = useState(6);
   const series = useMemo(() => buildMonthlySeries(transactions, 1, timeRange - 2), [transactions, timeRange]);
   const dashboardCategoryTransactions = useMemo(
@@ -1581,10 +1603,14 @@ export const Dashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
         <KPICard label="Liquid Income" value={fmt(currentMonth.income)} delta={incomeDelta}
           valueColor={currentMonth.income >= 0 ? themeTokens.positive : themeTokens.negative}
-          yoy={yoyInc} />
+          yoy={yoyInc}
+          blurred={privacyHidden}
+          onClick={togglePrivacy}
+          clickHint={{ hide: 'Hide financial values', show: 'Show financial values' }} />
         <KPICard label="Cash Flow" value={fmt(currentMonth.cashflow)} delta={cashflowDelta}
           valueColor={currentMonth.cashflow >= 0 ? themeTokens.positive : themeTokens.negative}
-          yoy={yoyCash} />
+          yoy={yoyCash}
+          blurred={privacyHidden} />
         <KPICard label="Savings Rate" value={`${savingsRate.toFixed(1)}%`} positive={savingsRate >= 20} delta={savingsRate}
           valueColor={themeTokens.positive} />
         <KPICard label="Fixed Expenses" value={fmt(currentMonth.fixed)} positive={false}
@@ -1593,7 +1619,7 @@ export const Dashboard = () => {
       </div>
 
       <PanelErrorBoundary label="Financial Statements">
-        <DashboardFinancialStatements />
+        <DashboardFinancialStatements blurred={privacyHidden} />
       </PanelErrorBoundary>
 
       <PanelErrorBoundary label="Monthly Insights">
@@ -2165,7 +2191,7 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
 };
 
 export const GraphPage = () => {
-  const { transactions, themeTokens, fmt, pickedDate } = useAppContext();
+  const { transactions, themeTokens, fmt, pickedDate, privacyHidden } = useAppContext();
 
   // Default window is the current calendar year (Jan 1 → Dec 31). When the
   // user clicks a date on the Payment Calendar, that selection drives all the
@@ -2236,18 +2262,22 @@ export const GraphPage = () => {
                 }}>Clear month ✕</button>
             )}
           </div>
-          <Display size={36}
-            color={(headline.cashflow || 0) >= 0 ? themeTokens.positive : themeTokens.negative}>
-            {fmtCurrency(headline.cashflow || 0, 'BRL')}
-          </Display>
-          <div style={{ height: 12 }} />
-          <AreaSpark data={series} dataKey="cashflow" accent={themeTokens.accent} tokens={themeTokens} height={220} />
+          <div style={privacyMaskStyle(privacyHidden)} aria-hidden={privacyHidden || undefined}>
+            <Display size={36}
+              color={(headline.cashflow || 0) >= 0 ? themeTokens.positive : themeTokens.negative}>
+              {fmtCurrency(headline.cashflow || 0, 'BRL')}
+            </Display>
+            <div style={{ height: 12 }} />
+            <AreaSpark data={series} dataKey="cashflow" accent={themeTokens.accent} tokens={themeTokens} height={220} />
+          </div>
         </Surface>
         <Surface>
           <Eyebrow>{incomeEyebrow}</Eyebrow>
-          <Display size={36} color={themeTokens.positive}>{fmtCurrency(headline.income || 0, 'BRL')}</Display>
-          <div style={{ height: 12 }} />
-          <AreaSpark data={series} dataKey="income" accent={themeTokens.positive} tokens={themeTokens} height={220} />
+          <div style={privacyMaskStyle(privacyHidden)} aria-hidden={privacyHidden || undefined}>
+            <Display size={36} color={themeTokens.positive}>{fmtCurrency(headline.income || 0, 'BRL')}</Display>
+            <div style={{ height: 12 }} />
+            <AreaSpark data={series} dataKey="income" accent={themeTokens.positive} tokens={themeTokens} height={220} />
+          </div>
         </Surface>
       </div>
       <Surface>
