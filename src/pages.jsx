@@ -656,49 +656,62 @@ export const LuxurySedanGoal = () => {
 };
 
 // Shared blur/privacy mask style — used by KPICard, Financial Statements,
-// and Graph tab so every privacy-masked area animates identically.
+// and Graph tab so every privacy-masked area animates identically. Blocking
+// pointer events while blurred prevents chart tooltips and selectable text
+// from leaking the values the mask is meant to hide.
 export const privacyMaskStyle = (blurred) => ({
   transition: 'filter 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)',
   filter: blurred ? 'blur(14px) saturate(140%)' : 'blur(0px)',
   opacity: blurred ? 0.78 : 1,
   userSelect: blurred ? 'none' : 'auto',
+  pointerEvents: blurred ? 'none' : 'auto',
   willChange: 'filter',
 });
 
 export const KPICard = ({ label, value, delta, positive, valueColor, yoy, blurred, onClick, clickHint }) => {
   const { themeTokens } = useAppContext();
   const positive_ = positive ?? delta >= 0;
-  const maskedStyle = privacyMaskStyle(blurred);
+  // The interactive wrapper (role=button) stays exposed to assistive tech so
+  // screen-reader users can always discover and toggle the privacy state.
+  // aria-hidden is only applied to the inner value content, never to the
+  // focusable wrapper itself.
+  const valueBlock = (
+    <div style={privacyMaskStyle(blurred)} aria-hidden={blurred || undefined}>
+      <Display size={32} color={valueColor}>{value}</Display>
+      {delta !== undefined &&
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12,
+          color: positive_ ? themeTokens.positive : themeTokens.negative }}>
+          {positive_ ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
+          <span style={{ color: themeTokens.textDim }}>vs last month</span>
+        </div>
+      }
+      {yoy && (
+        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: !yoy.hasPrior ? themeTokens.textFaint : (yoy.pct >= 0 ? themeTokens.positive : themeTokens.negative) }}>
+          {yoy.hasPrior
+            ? <>{yoy.pct >= 0 ? '↑' : '↓'} {Math.abs(yoy.pct).toFixed(1)}% <span style={{ color: themeTokens.textDim }}>YoY</span></>
+            : <span style={{ color: themeTokens.textFaint }}>— YoY (no prior data)</span>}
+        </div>
+      )}
+    </div>
+  );
   return (
     <Surface onClick={onClick}>
       <Eyebrow>{label}</Eyebrow>
-      <div
-        style={maskedStyle}
-        aria-hidden={blurred || undefined}
-        role={onClick ? 'button' : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        aria-label={onClick ? (blurred ? clickHint?.show : clickHint?.hide) : undefined}
-        onKeyDown={onClick ? (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
-        } : undefined}
-      >
-        <Display size={32} color={valueColor}>{value}</Display>
-        {delta !== undefined &&
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12,
-            color: positive_ ? themeTokens.positive : themeTokens.negative }}>
-            {positive_ ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
-            <span style={{ color: themeTokens.textDim }}>vs last month</span>
-          </div>
-        }
-        {yoy && (
-          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11,
-            color: !yoy.hasPrior ? themeTokens.textFaint : (yoy.pct >= 0 ? themeTokens.positive : themeTokens.negative) }}>
-            {yoy.hasPrior
-              ? <>{yoy.pct >= 0 ? '↑' : '↓'} {Math.abs(yoy.pct).toFixed(1)}% <span style={{ color: themeTokens.textDim }}>YoY</span></>
-              : <span style={{ color: themeTokens.textFaint }}>— YoY (no prior data)</span>}
-          </div>
-        )}
-      </div>
+      {onClick ? (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={blurred ? clickHint?.show : clickHint?.hide}
+          aria-pressed={!!blurred}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+          }}
+          style={{ outline: 'none', borderRadius: 12 }}
+        >
+          {valueBlock}
+        </div>
+      ) : valueBlock}
     </Surface>
   );
 };
@@ -2288,9 +2301,14 @@ export const GraphPage = () => {
           </span>
         </div>
         <div style={{ height: 12 }} />
-        <ComposedFlow data={series} onMonthSelect={(p) => setSelectedMonth({
-          year: p.year, month: p.month, monthKey: p.monthKey, monthLabel: p.monthLabel,
-        })} selectedMonthKey={selectedMonth?.monthKey} />
+        {/* Privacy mask covers the chart bars AND blocks pointer events while
+            blurred, so hover tooltips can't leak the exact income/fixed/variable
+            values the privacy mode is meant to hide. */}
+        <div style={privacyMaskStyle(privacyHidden)} aria-hidden={privacyHidden || undefined}>
+          <ComposedFlow data={series} onMonthSelect={(p) => setSelectedMonth({
+            year: p.year, month: p.month, monthKey: p.monthKey, monthLabel: p.monthLabel,
+          })} selectedMonthKey={selectedMonth?.monthKey} />
+        </div>
       </Surface>
       <MonthPurchaseDrilldown selectedMonth={selectedMonth} transactions={transactions} themeTokens={themeTokens} fmt={fmt} />
       <Surface>

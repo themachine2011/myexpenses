@@ -171,6 +171,7 @@ const FS_PRIVACY_MASK_STYLE = (blurred) => ({
   filter: blurred ? 'blur(14px) saturate(140%)' : 'blur(0px)',
   opacity: blurred ? 0.78 : 1,
   userSelect: blurred ? 'none' : 'auto',
+  pointerEvents: blurred ? 'none' : 'auto',
   willChange: 'filter',
 });
 
