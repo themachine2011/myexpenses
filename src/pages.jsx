@@ -4153,7 +4153,7 @@ export const SubscriptionsPage = () => {
         ) : (
           recurring.map((r) => (
             <div key={r.id} style={{
-              display: 'grid', gridTemplateColumns: '1fr 100px 100px 110px auto auto', gap: 14,
+              display: 'grid', gridTemplateColumns: '1fr 100px 100px 160px auto', gap: 14,
               padding: '14px 22px', alignItems: 'center',
               borderBottom: `1px solid ${themeTokens.hairline}`,
             }}>
@@ -4169,16 +4169,10 @@ export const SubscriptionsPage = () => {
               <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 Day {r.dayOfMonth}
               </div>
-              <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                {r.lastFiredKey ? `Last: ${r.lastFiredKey}` : 'Not fired yet'}
+              <div style={{ color: themeTokens.textFaint, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+                title={r.lastFiredKey ? `Last fired: ${r.lastFiredKey}` : 'Will fire automatically when day of month is reached'}>
+                Auto-fires monthly{r.lastFiredKey ? ` · ${r.lastFiredKey}` : ''}
               </div>
-              <button onClick={() => updateRecurring(r.id, { lastFiredKey: '' })}
-                title="Reset last-fired key so it will fire again this month"
-                style={{
-                  background: 'transparent', border: `1px solid ${themeTokens.hairline2}`, color: themeTokens.textDim,
-                  borderRadius: 999, padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 10,
-                  letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
-                }}>Re-fire</button>
               <button onClick={() => { if (confirmDelete(`Delete the recurring template "${r.description}"?`)) deleteRecurring(r.id); }}
                 style={{
                   background: 'transparent', border: 'none', color: themeTokens.negative, cursor: 'pointer',

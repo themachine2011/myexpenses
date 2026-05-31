@@ -837,6 +837,10 @@ export const useAppState = () => {
     if (!toFire.length) return;
     const newTxs = toFire.map((r) => ({
       id: `rec-${r.id}-${curKey}`,
+      // Recurring fires count as Fixed Expenses (they happen every month).
+      // Locking also prevents accidental individual edits/deletes — the only
+      // way to manage them is to remove the recurring template itself.
+      locked: true,
       type: r.type === 'income' ? 'income' : 'expense',
       amount: Number(r.amount) || 0,
       description: r.description,
@@ -852,6 +856,38 @@ export const useAppState = () => {
       return [...fresh, ...p].sort((a, b) => new Date(b.date) - new Date(a.date));
     });
     setRecurring((p) => p.map((r) => toFire.some((f) => f.id === r.id) ? { ...r, lastFiredKey: curKey } : r));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // One-shot backfill: older recurring fires were saved without locked:true
+  // (and some without the 'recurring' tag at all — earlier code paths only
+  // set the id prefix). Lift them into Fixed Expenses so historical months
+  // reflect the new rule. Match by tag OR by the stable `rec-<tplId>-<ym>` id.
+  useEffect(() => {
+    setTransactions((p) => {
+      let changed = false;
+      const next = p.map((t) => {
+        const isRecurring = (Array.isArray(t.tags) && t.tags.includes('recurring'))
+          || (typeof t.id === 'string' && t.id.startsWith('rec-'));
+        if (isRecurring && !t.locked) {
+          changed = true;
+          return { ...t, locked: true };
+        }
+        return t;
+      });
+      return changed ? next : p;
+    });
+    // Older templates were stored without an id, which made the auto-fire
+    // generate `rec-undefined-<ym>` ids. Assign ids now so future fires get
+    // unique transaction ids per template.
+    setRecurring((p) => {
+      let changed = false;
+      const next = p.map((r) => {
+        if (!r.id) { changed = true; return { ...r, id: generateId() }; }
+        return r;
+      });
+      return changed ? next : p;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
