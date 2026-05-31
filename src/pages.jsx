@@ -1625,10 +1625,12 @@ export const Dashboard = () => {
           yoy={yoyCash}
           blurred={privacyHidden} />
         <KPICard label="Savings Rate" value={`${savingsRate.toFixed(1)}%`} positive={savingsRate >= 20} delta={savingsRate}
-          valueColor={themeTokens.positive} />
+          valueColor={themeTokens.positive}
+          blurred={privacyHidden} />
         <KPICard label="Fixed Expenses" value={fmt(currentMonth.fixed)} positive={false}
           valueColor={themeTokens.negative}
-          yoy={yoyFixed} />
+          yoy={yoyFixed}
+          blurred={privacyHidden} />
       </div>
 
       <PanelErrorBoundary label="Financial Statements">
@@ -2204,7 +2206,7 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
 };
 
 export const GraphPage = () => {
-  const { transactions, themeTokens, fmt, pickedDate, privacyHidden } = useAppContext();
+  const { transactions, themeTokens, fmt, pickedDate, privacyHidden, togglePrivacy } = useAppContext();
 
   // Default window is the current calendar year (Jan 1 → Dec 31). When the
   // user clicks a date on the Payment Calendar, that selection drives all the
@@ -2265,23 +2267,40 @@ export const GraphPage = () => {
     <div style={{ display: 'grid', gap: 24 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <Surface>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
             <Eyebrow>{cashflowEyebrow}</Eyebrow>
-            {selectedMonth && (
-              <button onClick={clearSelection}
-                style={{
-                  background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer',
-                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase',
-                }}>Clear month ✕</button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                {privacyHidden ? 'Click to show values' : 'Click to hide values'}
+              </span>
+              {selectedMonth && (
+                <button onClick={clearSelection}
+                  style={{
+                    background: 'transparent', border: 'none', color: themeTokens.textDim, cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase',
+                  }}>Clear month ✕</button>
+              )}
+            </div>
           </div>
-          <div style={privacyMaskStyle(privacyHidden)} aria-hidden={privacyHidden || undefined}>
-            <Display size={36}
-              color={(headline.cashflow || 0) >= 0 ? themeTokens.positive : themeTokens.negative}>
-              {fmtCurrency(headline.cashflow || 0, 'BRL')}
-            </Display>
-            <div style={{ height: 12 }} />
-            <AreaSpark data={series} dataKey="cashflow" accent={themeTokens.accent} tokens={themeTokens} height={220} />
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={privacyHidden ? 'Show financial values' : 'Hide financial values'}
+            aria-pressed={!!privacyHidden}
+            onClick={togglePrivacy}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePrivacy(); }
+            }}
+            style={{ outline: 'none', borderRadius: 12, cursor: 'pointer' }}
+          >
+            <div style={privacyMaskStyle(privacyHidden)} aria-hidden={privacyHidden || undefined}>
+              <Display size={36}
+                color={(headline.cashflow || 0) >= 0 ? themeTokens.positive : themeTokens.negative}>
+                {fmtCurrency(headline.cashflow || 0, 'BRL')}
+              </Display>
+              <div style={{ height: 12 }} />
+              <AreaSpark data={series} dataKey="cashflow" accent={themeTokens.accent} tokens={themeTokens} height={220} />
+            </div>
           </div>
         </Surface>
         <Surface>
