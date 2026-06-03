@@ -825,6 +825,13 @@ export const useAppState = () => {
   // ----- Auto-fire recurring templates on mount ----------------------------
   // Idempotent via lastFiredKey = "YYYY-MM". A second mount in the same month
   // is a no-op; a mount the following month fires once.
+  //
+  // Legacy templates may lack an `id` (older versions stored them without
+  // one). If we let `rec-${undefined}-<ym>` slip into the transaction id,
+  // two such templates would collide on the same React key and become
+  // indistinguishable for edit/delete. So we synthesize an id per template
+  // here (tracked by original-object reference) and write it back to the
+  // recurring state in the same effect.
   useEffect(() => {
     if (!recurring.length) return;
     const now = new Date();
@@ -835,8 +842,17 @@ export const useAppState = () => {
       return day <= today && r.lastFiredKey !== curKey;
     });
     if (!toFire.length) return;
+    // ref → synthesized id (or original id if it already has one). Using the
+    // original object as the Map key keeps the mapping unambiguous even when
+    // multiple legacy templates share `id: undefined`.
+    const firedIds = new Map();
+    for (const r of toFire) firedIds.set(r, r.id || generateId());
     const newTxs = toFire.map((r) => ({
-      id: `rec-${r.id}-${curKey}`,
+      id: `rec-${firedIds.get(r)}-${curKey}`,
+      // Recurring fires count as Fixed Expenses (they happen every month).
+      // Locking also prevents accidental individual edits/deletes — the only
+      // way to manage them is to remove the recurring template itself.
+      locked: true,
       type: r.type === 'income' ? 'income' : 'expense',
       amount: Number(r.amount) || 0,
       description: r.description,
@@ -851,7 +867,45 @@ export const useAppState = () => {
       if (!fresh.length) return p;
       return [...fresh, ...p].sort((a, b) => new Date(b.date) - new Date(a.date));
     });
-    setRecurring((p) => p.map((r) => toFire.some((f) => f.id === r.id) ? { ...r, lastFiredKey: curKey } : r));
+    // Persist the synthesized id AND lastFiredKey on each fired template.
+    // Match by reference because legacy templates that lack `id` can't be
+    // matched by id without false positives.
+    setRecurring((p) => p.map((r) => {
+      if (!firedIds.has(r)) return r;
+      return { ...r, id: firedIds.get(r), lastFiredKey: curKey };
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // One-shot backfill: older recurring fires were saved without locked:true
+  // (and some without the 'recurring' tag at all — earlier code paths only
+  // set the id prefix). Lift them into Fixed Expenses so historical months
+  // reflect the new rule. Match by tag OR by the stable `rec-<tplId>-<ym>` id.
+  useEffect(() => {
+    setTransactions((p) => {
+      let changed = false;
+      const next = p.map((t) => {
+        const isRecurring = (Array.isArray(t.tags) && t.tags.includes('recurring'))
+          || (typeof t.id === 'string' && t.id.startsWith('rec-'));
+        if (isRecurring && !t.locked) {
+          changed = true;
+          return { ...t, locked: true };
+        }
+        return t;
+      });
+      return changed ? next : p;
+    });
+    // Older templates were stored without an id, which made the auto-fire
+    // generate `rec-undefined-<ym>` ids. Assign ids now so future fires get
+    // unique transaction ids per template.
+    setRecurring((p) => {
+      let changed = false;
+      const next = p.map((r) => {
+        if (!r.id) { changed = true; return { ...r, id: generateId() }; }
+        return r;
+      });
+      return changed ? next : p;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
