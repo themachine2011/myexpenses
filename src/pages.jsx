@@ -2051,9 +2051,14 @@ const graphPurchaseGroupLabel = (group) => (
 
 const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt }) => {
   const [filter, setFilter] = useState('all');
+  // Double-click on a row's Category cell sets this to that category, which
+  // then filters the visible rows down to only purchases in that category.
+  // Cleared when the user changes month or clicks the "Category: X ✕" chip.
+  const [categoryFilter, setCategoryFilter] = useState(null);
 
   useEffect(() => {
     setFilter('all');
+    setCategoryFilter(null);
   }, [selectedMonth?.monthKey]);
 
   const rows = useMemo(() => {
@@ -2078,8 +2083,12 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
     return next;
   }, [rows]);
 
-  const visibleRows = filter === 'all' ? rows : rows.filter((tx) => tx.graphGroup === filter);
+  const groupFiltered = filter === 'all' ? rows : rows.filter((tx) => tx.graphGroup === filter);
+  const visibleRows = categoryFilter
+    ? groupFiltered.filter((tx) => normalizeCategoryName(tx.category) === categoryFilter)
+    : groupFiltered;
   const visibleTotal = visibleRows.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  const categoryFilterLabel = categoryFilter ? getCategoryDisplayName(categoryFilter) : null;
   const chipStyle = (active) => ({
     border: `1px solid ${active ? themeTokens.accent : themeTokens.hairline2}`,
     background: active ? themeTokens.accent : 'transparent',
@@ -2137,12 +2146,42 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
       </div>
 
       <div style={{ height: 16 }} />
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {GRAPH_PURCHASE_FILTERS.map((item) => (
           <button key={item.id} onClick={() => setFilter(item.id)} style={chipStyle(filter === item.id)}>
             {item.label}
           </button>
         ))}
+        {categoryFilter && (
+          <button
+            onClick={() => setCategoryFilter(null)}
+            title="Clear category filter"
+            style={{
+              border: `1px solid ${themeTokens.accent}`,
+              background: themeTokens.accent,
+              color: '#0B0B0D',
+              borderRadius: 999,
+              padding: '7px 12px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'all 180ms',
+            }}>
+            Category: {categoryFilterLabel} ✕
+          </button>
+        )}
+        <span style={{
+          color: themeTokens.textDim,
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          marginLeft: 'auto',
+        }}>
+          Double-click a category to filter
+        </span>
       </div>
 
       <div style={{ height: 14 }} />
@@ -2186,7 +2225,17 @@ const MonthPurchaseDrilldown = ({ selectedMonth, transactions, themeTokens, fmt 
                   <td style={{ padding: '12px 14px', borderBottom: `1px solid ${themeTokens.hairline}`, color: themeTokens.accent, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
                     {graphPurchaseGroupLabel(tx.graphGroup)}
                   </td>
-                  <td style={{ padding: '12px 14px', borderBottom: `1px solid ${themeTokens.hairline}`, color: themeTokens.textDim, fontSize: 12 }}>
+                  <td
+                    onDoubleClick={() => setCategoryFilter(normalizeCategoryName(tx.category))}
+                    title="Double-click to filter by this category"
+                    style={{
+                      padding: '12px 14px',
+                      borderBottom: `1px solid ${themeTokens.hairline}`,
+                      color: themeTokens.textDim,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}>
                     {categoryLabel(tx.category)}
                   </td>
                   <td style={{ padding: '12px 14px', borderBottom: `1px solid ${themeTokens.hairline}`, color: themeTokens.textDim, fontSize: 12 }}>
