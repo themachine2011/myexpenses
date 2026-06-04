@@ -66,20 +66,45 @@ const toYMD = (value) => {
 };
 
 // Make a positive number out of whatever the model returned. We ask for a plain
-// number, but models sometimes hand back a formatted string — so we fall back
-// to currency-aware parsing:
-//   BRL "R$ 1.234,56"  → dot = thousands, comma = decimal
-//   USD "$1,234.56"    → comma = thousands, dot = decimal
+// dot-decimal number, but models sometimes hand back a formatted string. We work
+// out the decimal separator by POSITION rather than blindly stripping dots,
+// because BRL strings can arrive either Brazilian-formatted ("1.234,56") or as
+// the plain dot-decimal we asked for ("49.90"). Rules:
+//   • both "," and "." present  → the right-most one is the decimal separator
+//     ("1.234,56" → comma; "1,234.56" → dot)
+//   • only one kind present     → it's the decimal separator only when it's a
+//     single occurrence with 1–2 trailing digits ("49.90", "89,9"); a lone
+//     separator with exactly 3 trailing digits, or repeated separators, is
+//     thousands grouping ("1.234", "1.000.000")
+// `currency` is just a tiebreaker: USD never uses "." for grouping, so a lone
+// dot is always decimal for USD.
 export const coerceAmount = (value, currency) => {
   if (typeof value === 'number' && isFinite(value)) return Math.abs(value);
   let s = String(value == null ? '' : value).trim();
   if (!s) return NaN;
   s = s.replace(/[^0-9.,-]/g, ''); // strip R$, $, spaces, letters
-  if (String(currency).toUpperCase() === 'BRL') {
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else {
-    s = s.replace(/,/g, '');
+  if (!s) return NaN;
+  const cur = String(currency || '').toUpperCase();
+
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  const commaCount = (s.match(/,/g) || []).length;
+  const dotCount = (s.match(/\./g) || []).length;
+  let decimalSep = '';
+  if (lastComma >= 0 && lastDot >= 0) {
+    decimalSep = lastComma > lastDot ? ',' : '.';
+  } else if (lastComma >= 0) {
+    const trailing = s.length - lastComma - 1;
+    if (cur !== 'USD' && commaCount === 1 && trailing > 0 && trailing !== 3) decimalSep = ',';
+  } else if (lastDot >= 0) {
+    const trailing = s.length - lastDot - 1;
+    if (cur === 'USD' || (dotCount === 1 && trailing > 0 && trailing !== 3)) decimalSep = '.';
   }
+
+  if (decimalSep === ',') s = s.replace(/\./g, '').replace(',', '.');
+  else if (decimalSep === '.') s = s.replace(/,/g, '');
+  else s = s.replace(/[.,]/g, ''); // no decimal separator → all grouping
+
   const n = Number(s);
   return isFinite(n) ? Math.abs(n) : NaN;
 };

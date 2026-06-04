@@ -142,8 +142,16 @@ export const AiImportControls = () => {
   const keptCount = rows ? rows.filter((r) => r.keep).length : 0;
 
   const confirmImport = () => {
-    const kept = (rows || []).filter((r) => r.keep);
-    if (!kept.length) { setRows(null); return; }
+    // Guard: a USD row with no live FX rate can't be safely converted to the
+    // BRL ledger, so never import it (regardless of its checkbox state).
+    const blockedFx = (r) => r.currency === 'USD' && !(Number(fxRate) > 0);
+    const kept = (rows || []).filter((r) => r.keep && !blockedFx(r));
+    const skippedFx = (rows || []).filter((r) => r.keep && blockedFx(r)).length;
+    if (!kept.length) {
+      setStatus(skippedFx ? `Skipped ${skippedFx} USD row${skippedFx === 1 ? '' : 's'} — no FX rate available.` : '');
+      setRows(null);
+      return;
+    }
     const list = kept.map((r) => ({
       id: generateId(),
       date: ymdToISO(r.date),
@@ -160,6 +168,7 @@ export const AiImportControls = () => {
     if (result.duplicates) parts.push(`${result.duplicates} duplicate${result.duplicates === 1 ? '' : 's'} skipped`);
     if (result.invalid) parts.push(`${result.invalid} invalid`);
     if (usdConverted) parts.push(`${usdConverted} USD→BRL`);
+    if (skippedFx) parts.push(`${skippedFx} USD skipped (no FX)`);
     setStatus(parts.join(' · '));
     setRows(null);
   };
@@ -334,7 +343,17 @@ const ReviewModal = ({ rows, sourceName, themeTokens, fxRate, keptCount, patchRo
                   <td style={cell}>
                     {r.editing
                       ? (
-                        <select value={r.currency} onChange={(e) => patchRow(r._id, { currency: e.target.value })} style={editInput}>
+                        <select
+                          value={r.currency}
+                          onChange={(e) => {
+                            // Re-derive the missing-FX flag (and selection) on
+                            // currency change, otherwise a BRL→USD edit keeps the
+                            // stale flag and could import a USD amount as raw BRL.
+                            const currency = e.target.value;
+                            const missingFx = currency === 'USD' && !(Number(fxRate) > 0);
+                            patchRow(r._id, { currency, missingFx, keep: !r.duplicate && !missingFx });
+                          }}
+                          style={editInput}>
                           <option value="BRL">BRL</option>
                           <option value="USD">USD</option>
                         </select>
