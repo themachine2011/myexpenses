@@ -10,6 +10,7 @@ import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from 
 import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
+import { AiImportControls } from './2026-06-03-feature-import-extractor.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -3720,6 +3721,7 @@ export const TransactionsPage = () => {
           {portabilityBtn('Export JSON', handleExportJSON)}
           {portabilityBtn('Import CSV', () => fileInputRef.current?.click(), true)}
           {portabilityBtn('Import JSON', () => jsonInputRef.current?.click())}
+          <AiImportControls />
           <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleImportFile} style={{ display: 'none' }} />
           <input ref={jsonInputRef} type="file" accept=".json,application/json" onChange={handleImportJSON} style={{ display: 'none' }} />
           {importStatus && (
