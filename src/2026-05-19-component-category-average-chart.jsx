@@ -6,7 +6,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { useAppContext, CATEGORIES, MOTO_AMOUNT } from './context.jsx';
+import { useAppContext, MOTO_AMOUNT } from './context.jsx';
 import { WheelPeriodSelector } from './2026-05-19-component-wheel-period-selector.jsx';
 import {
   buildCategoryAverageRows,
@@ -206,6 +206,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   const {
     transactions,
     recurring,
+    categories,
     themeTokens,
     fmt,
     categoryColorOverrides,
@@ -218,10 +219,10 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   const pie = usePieInteractions();
   const now = new Date();
   const [visibleCategories, setVisibleCategories] = useState(() =>
-    new Set(CATEGORIES.filter((category) => category !== FINANCING_CATEGORY && category !== 'Income'))
+    new Set(categories.filter((category) => category !== FINANCING_CATEGORY && category !== 'Income'))
   );
   const [colorCategory, setColorCategory] = useState(() =>
-    CATEGORIES.find((category) => category !== FINANCING_CATEGORY && category !== 'Income') || CATEGORIES[0]
+    categories.find((category) => category !== FINANCING_CATEGORY && category !== 'Income') || categories[0]
   );
   const [compareMode, setCompareMode] = useState('month');
   const [periodA, setPeriodA] = useState(() => ({
@@ -258,7 +259,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   const allRows = useMemo(() => buildCategoryAverageRows({
     transactions,
     recurring,
-    categories: CATEGORIES,
+    categories,
     period: ytdPeriod,
     motoAmount: MOTO_AMOUNT,
   }), [transactions, recurring, ytdPeriod.from.getTime(), ytdPeriod.to.getTime(), ytdPeriod.monthsIncluded]);
@@ -266,7 +267,7 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   const lockedRows = useMemo(() => buildFullHistoryCategoryAverageRows({
     transactions,
     recurring,
-    categories: CATEGORIES,
+    categories,
     to: ytdPeriod.to,
     motoAmount: MOTO_AMOUNT,
   }), [transactions, recurring, ytdPeriod.to.getTime()]);
@@ -311,14 +312,14 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
   const rowsA = useMemo(() => buildCategoryAverageRows({
     transactions,
     recurring,
-    categories: CATEGORIES,
+    categories,
     period: comparisonA,
     motoAmount: MOTO_AMOUNT,
   }), [transactions, recurring, comparisonA.from.getTime(), comparisonA.to.getTime(), comparisonA.monthsIncluded]);
   const rowsB = useMemo(() => buildCategoryAverageRows({
     transactions,
     recurring,
-    categories: CATEGORIES,
+    categories,
     period: comparisonB,
     motoAmount: MOTO_AMOUNT,
   }), [transactions, recurring, comparisonB.from.getTime(), comparisonB.to.getTime(), comparisonB.monthsIncluded]);

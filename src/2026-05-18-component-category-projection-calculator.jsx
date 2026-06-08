@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useAppContext, CATEGORIES, MOTO_AMOUNT } from './context.jsx';
+import { useAppContext, MOTO_AMOUNT } from './context.jsx';
 import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 import {
   buildCategoryAverageRows,
@@ -106,7 +106,7 @@ const setsEqual = (a, b) => {
 const emptyProjectionRow = { category: 'None', label: 'No category selected', average: 0, total: 0 };
 
 export const CategoryProjectionCalculator = () => {
-  const { transactions, recurring, reminders, themeTokens: rawTokens, fmt, getCategoryColor } = useAppContext();
+  const { transactions, recurring, reminders, categories, themeTokens: rawTokens, fmt, getCategoryColor } = useAppContext();
   const inv = getInvertedCardTokens(rawTokens);
   const themeTokens = useMemo(() => ({
     ...rawTokens,
@@ -133,7 +133,7 @@ export const CategoryProjectionCalculator = () => {
   const rows = useMemo(() => buildCategoryAverageRows({
     transactions,
     recurring,
-    categories: CATEGORIES,
+    categories,
     period: historyPeriod,
     motoAmount: MOTO_AMOUNT,
   }), [
@@ -159,11 +159,11 @@ export const CategoryProjectionCalculator = () => {
     transactions,
     recurring,
     reminders,
-    categories: CATEGORIES,
+    categories,
     from: now,
     months,
     motoAmount: MOTO_AMOUNT,
-  }), [transactions, recurring, reminders, months, now]);
+  }), [transactions, recurring, reminders, categories, months, now]);
 
   const futureByCategory = useMemo(
     () => new Map(futureRows.map((row) => [row.category, row])),
@@ -352,6 +352,17 @@ export const CategoryProjectionCalculator = () => {
     marginBottom: 4,
   };
 
+  // Each top-level section becomes a self-contained card so the panel can
+  // auto-flow them across the full width of the Planning tab (instead of one
+  // tall narrow column). Plain block — inner layout of each section stays as-is.
+  const cardStyle = {
+    border: `1px solid ${themeTokens.hairline}`,
+    background: `${themeTokens.surface2}55`,
+    borderRadius: 14,
+    padding: 14,
+    minWidth: 0,
+  };
+
   const activeColor = selectedRows.length === 1 ? getCategoryColor(currentRow.category) : themeTokens.accent;
   const shown = presetResult?.out || projection;
   const shownLabel = presetResult
@@ -412,8 +423,14 @@ export const CategoryProjectionCalculator = () => {
   );
 
   return (
-    <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
-      <div>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+      gap: 16,
+      alignItems: 'start',
+      minWidth: 0,
+    }}>
+      <div style={cardStyle}>
         <div style={labelStyle}>Historical period</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 4 }}>
           {HISTORY_PERIODS.map((periodOption) => {
@@ -460,7 +477,7 @@ export const CategoryProjectionCalculator = () => {
         </div>
       </div>
 
-      <div>
+      <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
           <div style={{ ...labelStyle, marginBottom: 0 }}>Categories</div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -588,7 +605,7 @@ export const CategoryProjectionCalculator = () => {
         />
       </div>
 
-      <div>
+      <div style={cardStyle}>
         <div style={labelStyle}>Adjustment</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 4, marginBottom: 8 }}>
           {[
@@ -649,7 +666,7 @@ export const CategoryProjectionCalculator = () => {
         </div>
       </div>
 
-      <label>
+      <label style={cardStyle}>
         <div style={labelStyle}>Or monthly cap</div>
         <input
           type="number"
@@ -662,7 +679,7 @@ export const CategoryProjectionCalculator = () => {
         />
       </label>
 
-      <div>
+      <div style={cardStyle}>
         <div style={labelStyle}>Projection horizon</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 4, marginBottom: 6 }}>
           {PERIOD_KINDS.map((periodOption) => {
@@ -765,7 +782,7 @@ export const CategoryProjectionCalculator = () => {
         />
       </div>
 
-      <div>
+      <div style={cardStyle}>
         <div style={labelStyle}>Quick presets</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
           {presets.map((preset) => {

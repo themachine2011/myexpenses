@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
-import { resolveRange, CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
+import { resolveRange, REQUIRED_CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
 import { fmtCurrency } from './tokens.jsx';
 import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
@@ -11,6 +11,8 @@ import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
 import { AiImportControls } from './2026-06-03-feature-import-extractor.jsx';
+import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1114,7 +1116,7 @@ const BillRemindersPanel = () => {
 // Budgets per category. Reads/writes the `budgets` map in context, renders a
 // progress bar per category with limit set, and an inline editor to add/edit limits.
 const BudgetsPanel = () => {
-  const { budgets, setBudget, removeBudget, budgetUsage, themeTokens, fmt } = useAppContext();
+  const { budgets, setBudget, removeBudget, budgetUsage, themeTokens, fmt, categories } = useAppContext();
   const [editing, setEditing] = useState(false);
   const [newCat, setNewCat] = useState(DEFAULT_CATEGORY);
   const [newLimit, setNewLimit] = useState('');
@@ -1154,7 +1156,7 @@ const BudgetsPanel = () => {
                 border: `1px solid ${themeTokens.hairline2}`, borderRadius: 10,
                 padding: '10px 14px', color: themeTokens.text, fontFamily: 'var(--font-body)', fontSize: 14, outline: 'none', cursor: 'pointer',
               }}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
+              {categories.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
             </select>
           </div>
           <div>
@@ -1570,7 +1572,7 @@ const SavingsPanel = () => {
 };
 
 export const Dashboard = () => {
-  const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor, privacyHidden, togglePrivacy } = useAppContext();
+  const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor, privacyHidden, togglePrivacy, dashboardLayout } = useAppContext();
   const [timeRange, setTimeRange] = useState(6);
   const series = useMemo(() => buildMonthlySeries(transactions, 1, timeRange - 2), [transactions, timeRange]);
   const dashboardCategoryTransactions = useMemo(
@@ -1612,6 +1614,12 @@ export const Dashboard = () => {
     [transactions, yoyDelta]
   );
 
+  // Dashboard panels the user can show/hide from Tweaks. The KPI row stays
+  // pinned (it's the dashboard's core summary). Bill Reminders, Budgets, and
+  // Savings now live on the Planning tab — moved off the Dashboard to keep it
+  // light. `hiddenPanels[id] === true` means the user hid that panel.
+  const hiddenPanels = dashboardLayout?.hidden || {};
+
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -1634,54 +1642,55 @@ export const Dashboard = () => {
           blurred={privacyHidden} />
       </div>
 
-      <PanelErrorBoundary label="Financial Statements">
-        <DashboardFinancialStatements blurred={privacyHidden} />
-      </PanelErrorBoundary>
+      {!hiddenPanels.financialStatements && (
+        <PanelErrorBoundary label="Financial Statements">
+          <DashboardFinancialStatements blurred={privacyHidden} />
+        </PanelErrorBoundary>
+      )}
 
-      <PanelErrorBoundary label="Monthly Insights">
-        <MonthlyInsights transactions={transactions} savingsTotal={savingsTotal} goalAmount={goalAmount}
-          themeTokens={themeTokens} fmt={fmt} getCategoryColor={getCategoryColor} />
-      </PanelErrorBoundary>
+      {!hiddenPanels.monthlyInsights && (
+        <PanelErrorBoundary label="Monthly Insights">
+          <MonthlyInsights transactions={transactions} savingsTotal={savingsTotal} goalAmount={goalAmount}
+            themeTokens={themeTokens} fmt={fmt} getCategoryColor={getCategoryColor} />
+        </PanelErrorBoundary>
+      )}
 
-      <PanelErrorBoundary label="Bill Reminders">
-        <BillRemindersPanel />
-      </PanelErrorBoundary>
-
-      <PanelErrorBoundary label="Budgets">
-        <BudgetsPanel />
-      </PanelErrorBoundary>
-
-      <Surface>
-        <RotatingCharts
-          data={series}
-          lines={[
-            { name: 'Cash Flow', key: 'cashflow', color: themeTokens.accent },
-            { name: 'Income', key: 'income', color: themeTokens.positive },
-            { name: 'Expenses', key: 'expense', color: themeTokens.negative }
-          ]}
-          timeRange={timeRange} setTimeRange={setTimeRange}
-          tabs={[
-            { value: 3, label: '3M' }, { value: 6, label: '6M' }, { value: 12, label: '1Y' }
-          ]} />
-      </Surface>
-
-      <SpendHeatmapSurface Surface={Surface} Eyebrow={Eyebrow} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+      {!hiddenPanels.charts && (
         <Surface>
-          <Eyebrow>Income vs Costs · 6M</Eyebrow>
-          <div style={{ height: 12 }} />
-          <ComposedFlow data={series} />
+          <RotatingCharts
+            data={series}
+            lines={[
+              { name: 'Cash Flow', key: 'cashflow', color: themeTokens.accent },
+              { name: 'Income', key: 'income', color: themeTokens.positive },
+              { name: 'Expenses', key: 'expense', color: themeTokens.negative }
+            ]}
+            timeRange={timeRange} setTimeRange={setTimeRange}
+            tabs={[
+              { value: 3, label: '3M' }, { value: 6, label: '6M' }, { value: 12, label: '1Y' }
+            ]} />
         </Surface>
-        <Surface>
-          <Eyebrow>Spending by Category · This Month</Eyebrow>
-          <div style={{ height: 12 }} />
-          <ExpensePie transactions={dashboardCategoryTransactions} />
-        </Surface>
-      </div>
+      )}
 
-      <SavingsPanel />
+      {!hiddenPanels.heatmap && (
+        <SpendHeatmapSurface Surface={Surface} Eyebrow={Eyebrow} />
+      )}
 
+      {!hiddenPanels.incomeCategory && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          <Surface>
+            <Eyebrow>Income vs Costs · 6M</Eyebrow>
+            <div style={{ height: 12 }} />
+            <ComposedFlow data={series} />
+          </Surface>
+          <Surface>
+            <Eyebrow>Spending by Category · This Month</Eyebrow>
+            <div style={{ height: 12 }} />
+            <ExpensePie transactions={dashboardCategoryTransactions} />
+          </Surface>
+        </div>
+      )}
+
+      {!hiddenPanels.recentActivity && (
       <Surface>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Eyebrow>Recent Activity</Eyebrow>
@@ -1733,6 +1742,7 @@ export const Dashboard = () => {
           )}
         </div>
       </Surface>
+      )}
     </div>
   );
 };
@@ -3465,6 +3475,7 @@ export const TransactionsPage = () => {
     themeTokens, fmt, addInstallmentPurchase, addSplitPurchase, transactions, importTransactions,
     pickedDate, setPickedDate, activeFormCard, setActiveFormCard,
     rules, addRule, deleteRule, suggestCategory, setView,
+    categories, addCategory, removeCategory,
   } = ctx;
   const method = activeFormCard;
   const setMethod = setActiveFormCard;
@@ -3502,7 +3513,7 @@ export const TransactionsPage = () => {
     setDescription(next);
     if (categoryDirty) return;
     const sug = suggestCategory ? suggestCategory(next) : null;
-    if (sug && CATEGORIES.includes(sug)) setCategory(sug);
+    if (sug && categories.includes(sug)) setCategory(sug);
   };
 
   const handleExportCSV = () => {
@@ -3818,7 +3829,7 @@ export const TransactionsPage = () => {
                     <select value={leg.category}
                       onChange={(e) => setSplitLegs((p) => p.map((l, i) => i === idx ? { ...l, category: e.target.value } : l))}
                       style={{ ...inputStyle, cursor: 'pointer' }}>
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
+                      {categories.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
                     </select>
                   </div>
                   <div>
@@ -3877,7 +3888,7 @@ export const TransactionsPage = () => {
                   paddingRight: 32,
                   cursor: 'pointer',
                 }}>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <option key={c} value={c} style={{ background: themeTokens.surface, color: themeTokens.text }}>{categoryLabel(c)}</option>
                 ))}
               </select>
@@ -4001,14 +4012,83 @@ export const TransactionsPage = () => {
       </Surface>
     </div>
 
+      <CategoriesManager categories={categories} addCategory={addCategory} removeCategory={removeCategory}
+        themeTokens={themeTokens} inputStyle={inputStyle} getCategoryColor={ctx.getCategoryColor} />
       <RulesEditor rules={rules} addRule={addRule} deleteRule={deleteRule}
-        themeTokens={themeTokens} inputStyle={inputStyle} />
+        themeTokens={themeTokens} inputStyle={inputStyle} categories={categories} />
     </div>
   );
 };
 
+// Custom categories manager — add a new category or remove a user-added one.
+// The required categories (Income, Financing, Debts, Useless) can't be removed.
+// Removing a category only hides it from the pickers; past transactions keep
+// their label and still appear in charts.
+const CategoriesManager = ({ categories, addCategory, removeCategory, themeTokens, inputStyle, getCategoryColor }) => {
+  const [name, setName] = useState('');
+  const add = () => {
+    const n = name.trim();
+    if (!n) return;
+    addCategory(n);
+    setName('');
+  };
+  return (
+    <Surface>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <Eyebrow>Categories</Eyebrow>
+        <span style={{ color: themeTokens.textDim, fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+          {categories.length} categor{categories.length === 1 ? 'y' : 'ies'}
+        </span>
+      </div>
+      <div style={{ height: 12 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+        <div>
+          <Label tk={themeTokens}>New category</Label>
+          <input value={name} onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Groceries" style={inputStyle}
+            onKeyDown={(e) => { if (e.key === 'Enter') add(); }} />
+        </div>
+        <button onClick={add} disabled={!name.trim()}
+          style={{
+            padding: '12px 18px', border: 'none', borderRadius: 999,
+            background: themeTokens.accent, color: '#0B0B0D',
+            fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            cursor: name.trim() ? 'pointer' : 'not-allowed', opacity: name.trim() ? 1 : 0.5,
+            transition: 'all 200ms', whiteSpace: 'nowrap',
+          }}>Add category</button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+        {categories.map((c) => {
+          const required = REQUIRED_CATEGORIES.includes(c);
+          return (
+            <span key={c} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '6px 10px', borderRadius: 999,
+              border: `1px solid ${themeTokens.hairline2}`,
+              fontSize: 12, color: themeTokens.text,
+            }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: getCategoryColor(c), flexShrink: 0 }} />
+              {categoryLabel(c)}
+              {!required && (
+                <button
+                  onClick={() => { if (confirmDelete(`Remove the category "${categoryLabel(c)}"? Past transactions keep their label.`)) removeCategory(c); }}
+                  title="Remove category"
+                  style={{
+                    background: 'transparent', border: 'none', color: themeTokens.textDim,
+                    cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 14, lineHeight: 1, padding: 0,
+                  }}>×</button>
+              )}
+            </span>
+          );
+        })}
+      </div>
+    </Surface>
+  );
+};
+
 // Auto-categorization rules editor — list + add row.
-const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle }) => {
+const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle, categories }) => {
   const [match, setMatch]       = useState('');
   const [category, setCategory] = useState(DEFAULT_CATEGORY);
   const add = () => {
@@ -4040,7 +4120,7 @@ const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle }) =>
               ...inputStyle, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
               paddingRight: 32, cursor: 'pointer',
             }}>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <option key={c} value={c} style={{ background: themeTokens.surface, color: themeTokens.text }}>{categoryLabel(c)}</option>
             ))}
           </select>
@@ -4085,9 +4165,59 @@ const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle }) =>
 };
 
 // Subscriptions / Recurring transactions — hidden view reached from a button on Transactions.
+// Planning / Tools tab — the calculator + category projection, moved off the
+// Dashboard sidebar into a dedicated, roomier tab.
+export const PlanningPage = () => {
+  const { themeTokens } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <Surface>
+        <Eyebrow>Planning · Projections</Eyebrow>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700,
+          color: themeTokens.text, letterSpacing: '-0.01em', marginTop: 4,
+        }}>Category Projections</div>
+        <div style={{ color: themeTokens.textDim, fontSize: 13, marginTop: 6, maxWidth: 560, lineHeight: 1.5 }}>
+          Simulate future category spending and savings — pick a history window and the
+          categories to include, set an adjustment, and see the projected outcome.
+        </div>
+      </Surface>
+      <PanelErrorBoundary label="Projections">
+        <div className="aurum-card-flash-hover" style={{
+          background: inv.bg,
+          color: inv.fg,
+          border: `1px solid ${inv.border}`,
+          borderRadius: 16,
+          padding: 20,
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
+          '--black-card-base-bg': inv.bg,
+          '--black-card-rest-border': inv.border,
+          '--black-card-rest-shadow': 'none',
+        }}>
+          <CategoryProjectionCalculator />
+        </div>
+      </PanelErrorBoundary>
+
+      {/* Planning tools moved off the Dashboard to keep it light. */}
+      <PanelErrorBoundary label="Bill Reminders">
+        <BillRemindersPanel />
+      </PanelErrorBoundary>
+
+      <PanelErrorBoundary label="Budgets">
+        <BudgetsPanel />
+      </PanelErrorBoundary>
+
+      <SavingsPanel />
+    </div>
+  );
+};
+
 export const SubscriptionsPage = () => {
   const {
-    themeTokens, fmt, recurring, addRecurring, updateRecurring, deleteRecurring, setView,
+    themeTokens, fmt, recurring, addRecurring, updateRecurring, deleteRecurring, setView, categories,
   } = useAppContext();
   const [description, setDescription] = useState('');
   const [amount, setAmount]           = useState('');
@@ -4157,7 +4287,7 @@ export const SubscriptionsPage = () => {
           <div>
             <Label tk={themeTokens}>Category</Label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
+              {categories.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
             </select>
           </div>
           <div>
@@ -4278,7 +4408,7 @@ const EditBtn = ({ onClick, locked }) => (
 
 // Modal dialog for editing a transaction in place.
 const EditTransactionDialog = ({ tx, onClose, onSave }) => {
-  const { themeTokens, fmt } = useAppContext();
+  const { themeTokens, fmt, categories } = useAppContext();
   const [description, setDescription] = useState(tx?.description || '');
   const [amount, setAmount]           = useState(tx?.amount != null ? String(tx.amount) : '');
   const [category, setCategory]       = useState(tx?.category || DEFAULT_CATEGORY);
@@ -4349,7 +4479,7 @@ const EditTransactionDialog = ({ tx, onClose, onSave }) => {
             <div>
               <Label tk={themeTokens}>Category</Label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
+                {categories.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
               </select>
             </div>
             <div>
