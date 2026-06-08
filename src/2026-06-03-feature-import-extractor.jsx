@@ -60,7 +60,7 @@ const storedAmountBRL = (row, fxRate) => {
 };
 
 export const AiImportControls = () => {
-  const { themeTokens, transactions, importTransactions, suggestCategory, fxRate, fxStatus } = useAppContext();
+  const { themeTokens, transactions, importTransactions, suggestCategory, fxRate, fxStatus, categories } = useAppContext();
 
   const [apiKey, setApiKey] = useState(() => readLS(KEY_STORAGE));
   const [model, setModel] = useState(() => readLS(MODEL_STORAGE) || DEFAULT_MODEL);
@@ -124,7 +124,7 @@ export const AiImportControls = () => {
     setLoading(true);
     setSourceName(file.name || 'file');
     try {
-      const { rows: rawRows } = await extractTransactions({ file, apiKey, model, categories: CATEGORIES });
+      const { rows: rawRows } = await extractTransactions({ file, apiKey, model, categories });
       setRows(buildRows(rawRows));
     } catch (err) {
       const msg = err instanceof ExtractError ? err.message : (err?.message || 'Extraction failed.');

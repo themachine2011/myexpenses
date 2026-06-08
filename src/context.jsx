@@ -48,8 +48,30 @@ export const CATEGORIES = [
 export const DEFAULT_CATEGORY = 'Debts';
 export const DEFAULT_SPLIT_CATEGORY = 'Restaurants';
 
+// Categories the app's own logic depends on — always present, never removable
+// by the user (Income drives type detection, Financing the Triumph schedule,
+// Debts is the default, Useless is the catch-all fallback).
+export const REQUIRED_CATEGORIES = ['Income', 'Financing', DEFAULT_CATEGORY, USELESS_CATEGORY];
+
 const normalizeStoredCategory = (category, fallback = USELESS_CATEGORY) =>
   normalizeCategoryName(category || fallback);
+
+// Build a clean category list: normalize names, drop blanks and duplicates
+// (first occurrence wins), and guarantee the required categories are present.
+const normalizeCategoryList = (list) => {
+  const seen = new Set();
+  const out = [];
+  for (const raw of Array.isArray(list) ? list : []) {
+    const name = normalizeStoredCategory(raw);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  for (const req of REQUIRED_CATEGORIES) {
+    if (!seen.has(req)) { seen.add(req); out.push(req); }
+  }
+  return out;
+};
 
 const normalizeRecordCategory = (record, fallback = USELESS_CATEGORY) => {
   const nextCategory = normalizeStoredCategory(record?.category, fallback);
@@ -284,6 +306,8 @@ const DEBTS_KEY         = 'aurum.debts.v1';
 const REMINDERS_KEY     = 'aurum.reminders.v1';
 const NETWORTH_HIST_KEY = 'aurum.networth.history.v1';
 const CATEGORY_COLORS_KEY = 'aurum.categoryColors.v1';
+const CATEGORIES_KEY      = 'aurum.categories.v1';
+const DASHBOARD_LAYOUT_KEY = 'aurum.dashboardLayout.v1';
 
 // ----------------------------------------------------------------------------
 // Auto-categorization: suggest a category by walking the user-defined rules.
@@ -546,6 +570,18 @@ export const useAppState = () => {
   const [reminders, setReminders] = useStoredState(REMINDERS_KEY, []);
   const [nwHistory, setNwHistory] = useStoredState(NETWORTH_HIST_KEY, []);
   const [categoryColorOverrides, setCategoryColorOverrides] = useStoredState(CATEGORY_COLORS_KEY, {});
+  // User-defined category list. Seeded from the built-in CATEGORIES so existing
+  // installs see no change; from here on the user can add or remove their own.
+  const [categories, setCategories] = useStoredState(CATEGORIES_KEY, () => normalizeCategoryList(CATEGORIES));
+  // Dashboard panel visibility. Persisted so a user's show/hide choices stick.
+  // Default = empty `hidden` map, i.e. every panel visible (no change for
+  // existing installs). Toggling flips a single panel id on/off.
+  const [dashboardLayout, setDashboardLayout] = useStoredState(DASHBOARD_LAYOUT_KEY, { hidden: {} });
+  const toggleDashboardPanel = (id) => setDashboardLayout((prev) => {
+    const hidden = { ...(prev?.hidden || {}) };
+    if (hidden[id]) delete hidden[id]; else hidden[id] = true;
+    return { ...prev, hidden };
+  });
   const [cashTimeframe, setCashTimeframe] = useState('current');
   const [defaultSplitMode, setDefaultSplitMode] = useState(false);
   const [focusedCardMethod, setFocusedCardMethod] = useState(null);
@@ -591,6 +627,11 @@ export const useAppState = () => {
       if (prevKeys.length !== nextKeys.length) return next;
       return nextKeys.some((key) => next[key] !== prev[key]) ? next : prev;
     });
+    setCategories((prev) => {
+      const next = normalizeCategoryList(prev && prev.length ? prev : CATEGORIES);
+      if (Array.isArray(prev) && prev.length === next.length && prev.every((c, i) => c === next[i])) return prev;
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -622,6 +663,30 @@ export const useAppState = () => {
     });
   };
   const resetAllCategoryColors = () => setCategoryColorOverrides({});
+
+  // ----- Custom categories CRUD --------------------------------------------
+  // Add or remove user categories. Required categories can never be removed.
+  // Rename is intentionally not supported yet — it would need to migrate every
+  // historical transaction that references the old name.
+  const addCategory = (name) => {
+    const raw = String(name || '').trim();
+    if (!raw) return { ok: false };
+    const clean = normalizeStoredCategory(raw);
+    let added = false;
+    setCategories((prev) => {
+      const list = normalizeCategoryList(prev);
+      if (list.includes(clean)) return list;
+      added = true;
+      return [...list, clean];
+    });
+    return { ok: added, name: clean };
+  };
+  const removeCategory = (name) => {
+    const clean = normalizeStoredCategory(String(name || '').trim() || USELESS_CATEGORY);
+    if (REQUIRED_CATEGORIES.includes(clean)) return { ok: false, reason: 'required' };
+    setCategories((prev) => normalizeCategoryList(prev).filter((c) => c !== clean));
+    return { ok: true };
+  };
 
   const ccStats = useMemo(() => {
     const stats = {
@@ -945,6 +1010,7 @@ export const useAppState = () => {
     setCategoryColor,
     resetCategoryColor,
     resetAllCategoryColors,
+    categories, addCategory, removeCategory,
     fmt: (v) => fmtCurrency(v, currency, { rate: fxRate }),
     // Wallet BRL ↔ USD live FX (rule #26).
     fxRate,
@@ -964,6 +1030,7 @@ export const useAppState = () => {
     reminders, addReminder, markReminderPaid, deleteReminder,
     nwHistory,
     defaultSplitMode, setDefaultSplitMode,
+    dashboardLayout, toggleDashboardPanel,
     focusedCardMethod, setFocusedCardMethod,
     privacyHidden, togglePrivacy, setPrivacyHidden,
     // Bound calc helpers

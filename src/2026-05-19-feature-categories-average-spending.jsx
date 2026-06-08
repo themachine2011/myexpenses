@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { DashboardMonthYearSelector } from './2026-05-19-component-month-year-selector.jsx';
 import { CategoryAverageChartSection } from './2026-05-19-component-category-average-chart.jsx';
-import { DashboardCalculatorPanel } from './2026-05-18-component-dashboard-calculator.jsx';
 
 export const DashboardCategoriesAverageSpendingFeature = () => {
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
@@ -16,7 +15,6 @@ export const DashboardCategoriesAverageSpendingFeature = () => {
         onChange={setSelectedMonthYear}
       />
       <CategoryAverageChartSection selectedMonthYear={selectedMonthYear} />
-      <DashboardCalculatorPanel />
     </div>
   );
 };

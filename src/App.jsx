@@ -7,12 +7,12 @@ import { AurumLoader, AurumToken3D } from './loader.jsx';
 import {
   Dashboard, GraphPage, CardsPage, NetWorthPage,
   MotorcyclePage, TransactionsPage, LedgerPage, TimelinePage, DebtsPage,
-  AllTransactionsPage, SubscriptionsPage, CardPurchasesPage,
+  AllTransactionsPage, SubscriptionsPage, CardPurchasesPage, PlanningPage,
   ParticleField, GlobalCalendar, HistorySidebar, GlobalSearch,
 } from './pages.jsx';
 import { DashboardCategoriesAverageSpendingFeature } from './2026-05-19-feature-categories-average-spending.jsx';
 import {
-  useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect, TweakButton, TweakSlider,
+  useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect, TweakButton, TweakSlider, TweakToggle,
 } from './tweaks-panel.jsx';
 import { StorageErrorToast } from './2026-05-16-utils-storage-write-guard.jsx';
 import {
@@ -31,6 +31,18 @@ const TWEAK_DEFAULTS = {
   backupIntervalDays: getBackupSettings().intervalDays,
 };
 
+// Dashboard panels the user can show/hide from Tweaks. Ids must match the
+// `hiddenPanels.<id>` checks in the Dashboard component (pages.jsx). The KPI
+// row is intentionally not listed — it stays pinned as the core summary.
+const DASHBOARD_PANELS = [
+  { id: 'financialStatements', label: 'Financial Statements' },
+  { id: 'monthlyInsights', label: 'Monthly Insights' },
+  { id: 'charts', label: 'Cash Flow Chart' },
+  { id: 'heatmap', label: 'Spend Heatmap' },
+  { id: 'incomeCategory', label: 'Income vs Category' },
+  { id: 'recentActivity', label: 'Recent Activity' },
+];
+
 const NAV = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'graph', label: 'Graphs' },
@@ -39,6 +51,7 @@ const NAV = [
   { id: 'motorcycle', label: 'Triumph' },
   { id: 'ledger', label: 'Ledger' },
   { id: 'transactions', label: 'Transactions' },
+  { id: 'planning', label: 'Planning' },
 ];
 
 const HeaderToken = ({ accentHex }) => (
@@ -177,6 +190,7 @@ const App = () => {
       case 'motorcycle':  return <MotorcyclePage />;
       case 'ledger':      return <LedgerPage />;
       case 'transactions':return <TransactionsPage />;
+      case 'planning':    return <PlanningPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;
@@ -421,6 +435,12 @@ const App = () => {
           <TweakRadio label="Language" value={tweaks.language} options={[{ value: 'en', label: 'EN' }, { value: 'pt', label: 'PT' }]} onChange={(v) => setTweak('language', v)} />
           <TweakSection label="Transactions" />
           <TweakRadio label="Default split mode" value={tweaks.defaultSplitMode} options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]} onChange={(v) => setTweak('defaultSplitMode', v)} />
+          <TweakSection label="Dashboard panels" />
+          {DASHBOARD_PANELS.map((p) => (
+            <TweakToggle key={p.id} label={p.label}
+              value={!state.dashboardLayout?.hidden?.[p.id]}
+              onChange={() => state.toggleDashboardPanel(p.id)} />
+          ))}
           <TweakSection label="Backups" />
           <TweakSlider label="Auto-backup every" min={1} max={30} step={1} unit="d"
             value={tweaks.backupIntervalDays}
