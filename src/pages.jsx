@@ -11,7 +11,8 @@ import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
 import { AiImportControls } from './2026-06-03-feature-import-extractor.jsx';
-import { DashboardCalculatorPanel } from './2026-05-18-component-dashboard-calculator.jsx';
+import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
+import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -4170,27 +4171,43 @@ const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle, cate
 };
 
 // Subscriptions / Recurring transactions — hidden view reached from a button on Transactions.
-// Planning / Tools tab — the calculator + category projection, moved off the
-// Dashboard sidebar into a dedicated, roomier tab.
+// Planning tab — the category-spending projection plus the planning tools
+// (reminders, budgets, savings) moved off the Dashboard into a roomier tab.
 export const PlanningPage = () => {
   const { themeTokens } = useAppContext();
+  const inv = getInvertedCardTokens(themeTokens);
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <Surface>
-        <Eyebrow>Planning · Tools</Eyebrow>
+        <Eyebrow>Planning · Projections</Eyebrow>
         <div style={{
           fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700,
           color: themeTokens.text, letterSpacing: '-0.01em', marginTop: 4,
-        }}>Calculator &amp; Projections</div>
+        }}>Category Projections</div>
         <div style={{ color: themeTokens.textDim, fontSize: 13, marginTop: 6, maxWidth: 560, lineHeight: 1.5 }}>
-          A full calculator with normal, scientific, and category-projection modes — simulate
-          future category spending and savings using your own categories and history window.
+          Simulate future category spending and savings — pick a history window and the
+          categories to include, set an adjustment, and see the projected outcome.
         </div>
       </Surface>
-      {/* Full calculator panel (normal / scientific / projection). It carries
-          its own card styling, so it renders directly without an extra wrapper. */}
-      <PanelErrorBoundary label="Calculator">
-        <DashboardCalculatorPanel />
+      {/* Projections fill the tab in a full-width auto-flow card layout. The
+          projection component carries inverted (dark-card) text tokens, so it
+          sits inside a matching dark-card wrapper. */}
+      <PanelErrorBoundary label="Projections">
+        <div className="aurum-card-flash-hover" style={{
+          background: inv.bg,
+          color: inv.fg,
+          border: `1px solid ${inv.border}`,
+          borderRadius: 16,
+          padding: 20,
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
+          '--black-card-base-bg': inv.bg,
+          '--black-card-rest-border': inv.border,
+          '--black-card-rest-shadow': 'none',
+        }}>
+          <CategoryProjectionCalculator />
+        </div>
       </PanelErrorBoundary>
 
       {/* Planning tools moved off the Dashboard to keep it light. */}
