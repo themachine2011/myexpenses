@@ -11,8 +11,7 @@ import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
 import { AiImportControls } from './2026-06-03-feature-import-extractor.jsx';
-import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
-import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
+import { DashboardCalculatorPanel } from './2026-05-18-component-dashboard-calculator.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -3537,7 +3536,7 @@ export const TransactionsPage = () => {
   // Restore individual feature stores from a backup file.
   const restoreFeatureStores = (parsed) => {
     if (!parsed || typeof parsed !== 'object') return 0;
-    if (!confirmDelete('Restore from backup? This will REPLACE your current rules, recurring templates, budgets, goals, debts, and reminders.')) {
+    if (!confirmDelete('Restore from backup? This will REPLACE your current rules, recurring templates, budgets, goals, debts, and reminders, and merge in any saved categories.')) {
       return 0;
     }
     let restored = 0;
@@ -3565,6 +3564,12 @@ export const TransactionsPage = () => {
     if (Array.isArray(parsed.reminders)) {
       (ctx.reminders || []).slice().forEach((r) => ctx.deleteReminder(r.id));
       parsed.reminders.forEach((r) => { if (r && r.label && r.date) { ctx.addReminder({ ...r, id: undefined }); restored++; } });
+    }
+    if (Array.isArray(parsed.categories)) {
+      // Additive merge — only add categories the backup has that aren't already
+      // present. We never remove existing ones, so a category still referenced
+      // by a historical transaction can't be orphaned by a restore.
+      parsed.categories.forEach((c) => { if (c && ctx.addCategory(c).ok) restored++; });
     }
     return restored;
   };
@@ -4169,36 +4174,23 @@ const RulesEditor = ({ rules, addRule, deleteRule, themeTokens, inputStyle, cate
 // Dashboard sidebar into a dedicated, roomier tab.
 export const PlanningPage = () => {
   const { themeTokens } = useAppContext();
-  const inv = getInvertedCardTokens(themeTokens);
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <Surface>
-        <Eyebrow>Planning · Projections</Eyebrow>
+        <Eyebrow>Planning · Tools</Eyebrow>
         <div style={{
           fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700,
           color: themeTokens.text, letterSpacing: '-0.01em', marginTop: 4,
-        }}>Category Projections</div>
+        }}>Calculator &amp; Projections</div>
         <div style={{ color: themeTokens.textDim, fontSize: 13, marginTop: 6, maxWidth: 560, lineHeight: 1.5 }}>
-          Simulate future category spending and savings — pick a history window and the
-          categories to include, set an adjustment, and see the projected outcome.
+          A full calculator with normal, scientific, and category-projection modes — simulate
+          future category spending and savings using your own categories and history window.
         </div>
       </Surface>
-      <PanelErrorBoundary label="Projections">
-        <div className="aurum-card-flash-hover" style={{
-          background: inv.bg,
-          color: inv.fg,
-          border: `1px solid ${inv.border}`,
-          borderRadius: 16,
-          padding: 20,
-          width: '100%',
-          minWidth: 0,
-          boxSizing: 'border-box',
-          '--black-card-base-bg': inv.bg,
-          '--black-card-rest-border': inv.border,
-          '--black-card-rest-shadow': 'none',
-        }}>
-          <CategoryProjectionCalculator />
-        </div>
+      {/* Full calculator panel (normal / scientific / projection). It carries
+          its own card styling, so it renders directly without an extra wrapper. */}
+      <PanelErrorBoundary label="Calculator">
+        <DashboardCalculatorPanel />
       </PanelErrorBoundary>
 
       {/* Planning tools moved off the Dashboard to keep it light. */}

@@ -34,6 +34,7 @@ export const buildBackupPayload = (ctx) => {
     debts:     ctx?.debtsState || [],
     reminders: ctx?.reminders || [],
     nwHistory: ctx?.nwHistory || [],
+    categories: ctx?.categories || [],
   };
 };
 
