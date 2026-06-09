@@ -19,6 +19,11 @@ import {
   useAutoBackup, buildBackupPayload, downloadBackup, setBackupSettings, getBackupSettings,
 } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { GlassTheme } from './2026-05-20-component-glass-theme.jsx';
+// 2026-06-09 feature review: three additive analytics tabs. Each is a new tab
+// here plus a small preview card wired into the Dashboard (in pages.jsx).
+import { HealthScorePage } from './2026-06-09-feature-health-score.jsx';
+import { SpendingTrendsPage } from './2026-06-09-feature-spending-trends.jsx';
+import { MerchantsPage } from './2026-06-09-feature-merchants.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -52,6 +57,10 @@ const NAV = [
   { id: 'ledger', label: 'Ledger' },
   { id: 'transactions', label: 'Transactions' },
   { id: 'planning', label: 'Planning' },
+  // 2026-06-09 feature review — new analytics tabs.
+  { id: 'health', label: 'Health' },
+  { id: 'trends', label: 'Trends' },
+  { id: 'merchants', label: 'Merchants' },
 ];
 
 const HeaderToken = ({ accentHex }) => (
@@ -191,6 +200,9 @@ const App = () => {
       case 'ledger':      return <LedgerPage />;
       case 'transactions':return <TransactionsPage />;
       case 'planning':    return <PlanningPage />;
+      case 'health':      return <HealthScorePage />;
+      case 'trends':      return <SpendingTrendsPage />;
+      case 'merchants':   return <MerchantsPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;

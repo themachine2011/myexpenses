@@ -13,6 +13,10 @@ import { DashboardFinancialStatements } from './2026-05-28-component-financial-s
 import { AiImportControls } from './2026-06-03-feature-import-extractor.jsx';
 import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
 import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
+// 2026-06-09 feature review: Dashboard preview cards for the three new tabs.
+import { HealthScorePreview } from './2026-06-09-feature-health-score.jsx';
+import { SpendingTrendsPreview } from './2026-06-09-feature-spending-trends.jsx';
+import { MerchantsPreview } from './2026-06-09-feature-merchants.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1640,6 +1644,20 @@ export const Dashboard = () => {
           valueColor={themeTokens.negative}
           yoy={yoyFixed}
           blurred={privacyHidden} />
+      </div>
+
+      {/* 2026-06-09 feature review — preview cards for the three new analytics
+          tabs (Health, Trends, Merchants). Each links into its own tab. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+        <PanelErrorBoundary label="Financial Health">
+          <HealthScorePreview />
+        </PanelErrorBoundary>
+        <PanelErrorBoundary label="Spending Trends">
+          <SpendingTrendsPreview />
+        </PanelErrorBoundary>
+        <PanelErrorBoundary label="Top Merchants">
+          <MerchantsPreview />
+        </PanelErrorBoundary>
       </div>
 
       {!hiddenPanels.financialStatements && (
