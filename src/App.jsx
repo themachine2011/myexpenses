@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppContext, useAppState, currentMonthRange } from './context.jsx';
 import { ACCENT_PRESETS, FONT_PAIRS } from './tokens.jsx';
@@ -24,6 +24,21 @@ import { GlassTheme } from './2026-05-20-component-glass-theme.jsx';
 import { HealthScorePage } from './2026-06-09-feature-health-score.jsx';
 import { SpendingTrendsPage } from './2026-06-09-feature-spending-trends.jsx';
 import { MerchantsPage } from './2026-06-09-feature-merchants.jsx';
+// 2026-06-10 feature review: three more additive, read-only tabs (each also has
+// a small Dashboard preview wired in pages.jsx).
+import { CashForecastPage } from './2026-06-10-feature-cash-forecast.jsx';
+import { SavingsGoalsPage } from './2026-06-10-feature-savings-goals.jsx';
+import { SpendingPatternsPage } from './2026-06-10-feature-spending-patterns.jsx';
+// 2026-06-11 feature review: three more additive, read-only tabs (each also has
+// a small Dashboard preview wired in pages.jsx).
+import { BudgetsPage } from './2026-06-11-feature-budgets.jsx';
+import { IncomePage } from './2026-06-11-feature-income.jsx';
+import { BillsPage } from './2026-06-11-feature-bills.jsx';
+// 2026-06-11 feature review (run 2): yearly review, month compare, and
+// unusual-spending alerts (each also has a Dashboard preview in pages.jsx).
+import { YearReviewPage } from './2026-06-11-feature-year-review.jsx';
+import { MonthComparePage } from './2026-06-11-feature-month-compare.jsx';
+import { AlertsPage } from './2026-06-11-feature-alerts.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -46,8 +61,21 @@ const DASHBOARD_PANELS = [
   { id: 'heatmap', label: 'Spend Heatmap' },
   { id: 'incomeCategory', label: 'Income vs Category' },
   { id: 'recentActivity', label: 'Recent Activity' },
+  // Preview-card rows added by the 2026-06-09 → 2026-06-11 feature reviews.
+  // One toggle per row so the Dashboard can be slimmed down without losing
+  // the tabs themselves (they stay reachable from the nav groups).
+  { id: 'previewsAnalytics', label: 'Health · Trends · Merchants' },
+  { id: 'previewsForward', label: 'Forecast · Goals · Patterns' },
+  { id: 'previewsMoney', label: 'Budgets · Income · Bills' },
+  { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
 ];
 
+// Core tabs stay as always-visible pills. The twelve analytics tabs from the
+// 2026-06-09 → 2026-06-11 feature reviews — plus Timeline / Subscriptions /
+// Debts, which previously had no nav entry at all — are grouped into two
+// dropdowns so the header stays compact: "Insights" looks backward (what
+// happened), "Plan" looks forward (what's coming). Every view keeps its id, so
+// existing links (`setView`, `?view=`) are unaffected.
 const NAV = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'graph', label: 'Graphs' },
@@ -57,11 +85,99 @@ const NAV = [
   { id: 'ledger', label: 'Ledger' },
   { id: 'transactions', label: 'Transactions' },
   { id: 'planning', label: 'Planning' },
-  // 2026-06-09 feature review — new analytics tabs.
-  { id: 'health', label: 'Health' },
-  { id: 'trends', label: 'Trends' },
-  { id: 'merchants', label: 'Merchants' },
 ];
+
+const NAV_GROUPS = [
+  {
+    id: 'insights',
+    label: 'Insights',
+    items: [
+      { id: 'health', label: 'Health' },
+      { id: 'trends', label: 'Trends' },
+      { id: 'merchants', label: 'Merchants' },
+      { id: 'patterns', label: 'Patterns' },
+      { id: 'income', label: 'Income' },
+      { id: 'yearly', label: 'Yearly' },
+      { id: 'compare', label: 'Compare' },
+      { id: 'alerts', label: 'Alerts' },
+      { id: 'timeline', label: 'Timeline' },
+    ],
+  },
+  {
+    id: 'plan',
+    label: 'Plan',
+    items: [
+      { id: 'forecast', label: 'Forecast' },
+      { id: 'goals', label: 'Goals' },
+      { id: 'budgets', label: 'Budgets' },
+      { id: 'bills', label: 'Bills' },
+      { id: 'subscriptions', label: 'Subscriptions' },
+      { id: 'debts', label: 'Debts' },
+    ],
+  },
+];
+
+// One dropdown group in the header nav. The trigger pill lights up like a
+// normal tab when the active view lives inside it (and shows which one);
+// the menu closes on selection or outside click.
+const NavGroup = ({ group, view, setView, tk }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  const activeItem = group.items.find((n) => n.id === view);
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu" aria-expanded={open}
+        style={{
+          background: activeItem ? tk.text : 'transparent',
+          color: activeItem ? tk.canvas : tk.textDim,
+          border: 'none',
+          padding: '8px 14px', borderRadius: 999,
+          fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 400,
+          letterSpacing: '0.18em', textTransform: 'uppercase',
+          cursor: 'pointer', transition: 'all 200ms',
+        }}>
+        {group.label}{activeItem ? ` · ${activeItem.label}` : ''} ▾
+      </button>
+      {open && (
+        <div role="menu" style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 60,
+          minWidth: 178, padding: 6, display: 'grid', gap: 2,
+          background: tk.surface, border: `1px solid ${tk.hairline}`, borderRadius: 16,
+          backdropFilter: 'blur(28px) saturate(160%)', WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+          boxShadow: tk.isDark
+            ? '0 18px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)'
+            : '0 18px 40px rgba(40,30,20,0.14), 0 0 0 1px rgba(40,30,20,0.05)',
+        }}>
+          {group.items.map((n) => {
+            const active = view === n.id;
+            return (
+              <button key={n.id} role="menuitem"
+                onClick={() => { setView(n.id); setOpen(false); }}
+                style={{
+                  background: active ? tk.text : 'transparent',
+                  color: active ? tk.canvas : tk.textDim,
+                  border: 'none', textAlign: 'left',
+                  padding: '8px 14px', borderRadius: 999,
+                  fontFamily: 'var(--font-mono)', fontSize: 10,
+                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                  cursor: 'pointer', transition: 'all 200ms',
+                }}>
+                {n.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const HeaderToken = ({ accentHex }) => (
   <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
@@ -203,6 +319,15 @@ const App = () => {
       case 'health':      return <HealthScorePage />;
       case 'trends':      return <SpendingTrendsPage />;
       case 'merchants':   return <MerchantsPage />;
+      case 'forecast':    return <CashForecastPage />;
+      case 'goals':       return <SavingsGoalsPage />;
+      case 'patterns':    return <SpendingPatternsPage />;
+      case 'budgets':     return <BudgetsPage />;
+      case 'income':      return <IncomePage />;
+      case 'bills':       return <BillsPage />;
+      case 'yearly':      return <YearReviewPage />;
+      case 'compare':     return <MonthComparePage />;
+      case 'alerts':      return <AlertsPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;
@@ -350,6 +475,9 @@ const App = () => {
                   </button>
                 );
               })}
+              {NAV_GROUPS.map((g) => (
+                <NavGroup key={g.id} group={g} view={state.view} setView={state.setView} tk={tk} />
+              ))}
             </nav>
           </div>
         </motion.header>

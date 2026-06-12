@@ -17,6 +17,18 @@ import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 import { HealthScorePreview } from './2026-06-09-feature-health-score.jsx';
 import { SpendingTrendsPreview } from './2026-06-09-feature-spending-trends.jsx';
 import { MerchantsPreview } from './2026-06-09-feature-merchants.jsx';
+// 2026-06-10 feature review — Dashboard preview cards for the new tabs.
+import { CashForecastPreview } from './2026-06-10-feature-cash-forecast.jsx';
+import { SavingsGoalsPreview } from './2026-06-10-feature-savings-goals.jsx';
+import { SpendingPatternsPreview } from './2026-06-10-feature-spending-patterns.jsx';
+// 2026-06-11 feature review — Dashboard preview cards for the new tabs.
+import { BudgetsPreview } from './2026-06-11-feature-budgets.jsx';
+import { IncomePreview } from './2026-06-11-feature-income.jsx';
+import { BillsPreview } from './2026-06-11-feature-bills.jsx';
+// 2026-06-11 feature review (run 2) — Dashboard previews for Yearly / Compare / Alerts.
+import { YearReviewPreview } from './2026-06-11-feature-year-review.jsx';
+import { MonthComparePreview } from './2026-06-11-feature-month-compare.jsx';
+import { AlertsPreview } from './2026-06-11-feature-alerts.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1647,18 +1659,70 @@ export const Dashboard = () => {
       </div>
 
       {/* 2026-06-09 feature review — preview cards for the three new analytics
-          tabs (Health, Trends, Merchants). Each links into its own tab. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-        <PanelErrorBoundary label="Financial Health">
-          <HealthScorePreview />
-        </PanelErrorBoundary>
-        <PanelErrorBoundary label="Spending Trends">
-          <SpendingTrendsPreview />
-        </PanelErrorBoundary>
-        <PanelErrorBoundary label="Top Merchants">
-          <MerchantsPreview />
-        </PanelErrorBoundary>
-      </div>
+          tabs (Health, Trends, Merchants). Each links into its own tab.
+          Each preview row can be hidden from Tweaks → Dashboard panels; the
+          tabs themselves stay reachable from the nav groups. */}
+      {!hiddenPanels.previewsAnalytics && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <PanelErrorBoundary label="Financial Health">
+            <HealthScorePreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Spending Trends">
+            <SpendingTrendsPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Top Merchants">
+            <MerchantsPreview />
+          </PanelErrorBoundary>
+        </div>
+      )}
+
+      {/* 2026-06-10 feature review — preview cards for Forecast, Goals,
+          Patterns. Each links into its own tab. */}
+      {!hiddenPanels.previewsForward && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <PanelErrorBoundary label="Month-End Forecast">
+            <CashForecastPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Savings Goals">
+            <SavingsGoalsPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Spending Patterns">
+            <SpendingPatternsPreview />
+          </PanelErrorBoundary>
+        </div>
+      )}
+
+      {/* 2026-06-11 feature review — preview cards for Budgets, Income, Bills.
+          Each links into its own tab. */}
+      {!hiddenPanels.previewsMoney && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <PanelErrorBoundary label="Budgets">
+            <BudgetsPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Income Insights">
+            <IncomePreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Upcoming Bills">
+            <BillsPreview />
+          </PanelErrorBoundary>
+        </div>
+      )}
+
+      {/* 2026-06-11 feature review (run 2) — preview cards for Yearly, Compare,
+          Alerts. Each links into its own tab. */}
+      {!hiddenPanels.previewsDeep && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <PanelErrorBoundary label="Year in Review">
+            <YearReviewPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Month Compare">
+            <MonthComparePreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Spending Alerts">
+            <AlertsPreview />
+          </PanelErrorBoundary>
+        </div>
+      )}
 
       {!hiddenPanels.financialStatements && (
         <PanelErrorBoundary label="Financial Statements">
