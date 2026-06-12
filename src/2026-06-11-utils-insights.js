@@ -33,7 +33,10 @@ export { clamp, monthRangeFor };
 // 'warn' (>=80% used) > 'ok'.
 export const budgetReport = (transactions, budgets = {}, now = new Date()) => {
   const cur = monthRangeFor(0, now);
-  const actuals = categoryExpenseTotals(transactions, cur.from, cur.to); // Map cat -> spent
+  // "Spent" is capped at `now`, not month-end — the full month range would
+  // count future-dated rows (e.g. a pending instalment later this month) as
+  // already spent, inflating both the spent bar and the run-rate projection.
+  const actuals = categoryExpenseTotals(transactions, cur.from, now); // Map cat -> spent
 
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dayOfMonth = clamp(now.getDate(), 1, daysInMonth);

@@ -40,7 +40,11 @@ export { clamp, monthRangeFor };
 //               shown separately and never silently added on top).
 export const monthForecast = (transactions, upcomingDuesList = [], now = new Date()) => {
   const cur = monthRangeFor(0, now);
-  const totals = periodTotals(transactions, cur.from, cur.to);
+  // "Actual so far" stops at `now`, not month-end: the full month range would
+  // sweep future-dated rows (e.g. a pending financing instalment later this
+  // month) into actuals and inflate the run-rate. Future commitments belong
+  // in the separate knownDues section below.
+  const totals = periodTotals(transactions, cur.from, now);
 
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dayOfMonth = now.getDate();
@@ -59,9 +63,13 @@ export const monthForecast = (transactions, upcomingDuesList = [], now = new Dat
     : null;
 
   // Known dues that still fall inside THIS month (heads-up, shown separately).
+  // Window starts at the START of today, not `now`: upcomingDues() dates
+  // same-day items at midnight, which an afternoon timestamp would wrongly
+  // exclude — a bill due today is still due.
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const knownDues = (upcomingDuesList || [])
-    .filter((d) => inRange({ date: d.date }, now, monthEnd))
+    .filter((d) => inRange({ date: d.date }, startOfToday, monthEnd))
     .map((d) => ({ ...d }));
   const knownDuesTotal = knownDues.reduce((s, d) => s + (Number(d.amount) || 0), 0);
 
