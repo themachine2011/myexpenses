@@ -1,9 +1,18 @@
 # Daily Feature Review Routine — MyExpenses
 
 ## 1. Purpose
-Review the whole project as a product, find useful new features, and
-automatically add the best 3. Each run should leave the product slightly
-better without breaking anything that already works.
+Focus on:
+- useful new features
+- better navigation
+- better tab organization
+- cleaner dashboard structure
+- better UI/UX
+- smoother interactions
+- removing unnecessary complexity
+- improving existing features
+- merging related tabs when it makes sense
+- nesting connected tabs inside parent tabs when they share the same logic
+ 
 
 ## 2. Before you start
 - Working folder: `C:\Users\laurencio.pereira\OneDrive - Cyncly\Área de Trabalho\myexpenses`
@@ -39,12 +48,19 @@ Analyze every part:
 - Features that should move off the Dashboard into their own tab
 - Missing features or useful new tabs
 
-## 6. Where new features must live
+## 6. Constraints
+
+- Never edit project files except when the review points to a improvement in a existing feature
+- Review the current implementation before suggesting features.
+- Prefer features that improve financial visibility, planning, or usability.
+- Explain risks and maintenance costs.
+
+## 7. Where new features must live
 - Every new feature gets its own dedicated tab.
 - Every new feature also shows a small preview on the Dashboard that links
   into that tab.
 
-## 7. Required report (produce this every run)
+## 8. Required report (produce this every run)
 1. Executive summary
 2. What changed or looks important since the last review (if detectable)
 3. Current system overview
@@ -76,7 +92,7 @@ Then also explain:
 - Anything that should NOT be built yet
 - Any risks or unclear areas
 
-## 8. Auto-apply policy (the one exception to "ask first")
+## 9. Auto-apply policy (the one exception to "ask first")
 - Think through 5 features, then automatically apply the best 3 — no approval
   needed for these 3.
 - This override applies ONLY to additive new features that: live in their own
@@ -85,11 +101,11 @@ Then also explain:
 - Describe the 2 features you did NOT apply clearly at the end, so I can apply
   them manually later.
 
-## 9. Final validation before finishing
+## 10. Final validation before finishing
 Re-check: calculations, logic flow, styling, UI/UX, and any math the new
 features introduced.
 
-## 10. Keep a history log (every run)
+## 11. Keep a history log (every run)
 - Before suggesting features, read the most recent file in
   `.claude/feature-review-log/` so you don't re-suggest something already
   applied.
@@ -102,7 +118,7 @@ features introduced.
   - The 2 features that were NOT applied (name + one-line summary each)
   - Any risks or unclear areas found
 
-## 11. Done only when
+## 12. Done only when
 - The whole system has been reviewed, AND
 - The 3 new features have been applied automatically, AND
 - The dated history log file for today has been written.
