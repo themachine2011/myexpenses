@@ -49,12 +49,21 @@ export const cashflowCalendar = (transactions, dues = [], { year, month, now = n
   const m = month ?? now.getMonth();
   const monthStart = new Date(y, m, 1);
   const monthEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
+  // The current month is partial: real income/expense must stop at `now`. The
+  // app seeds pending financing instalments as future-dated transaction rows
+  // later this month, and those same rows come back from `upcomingDues` as
+  // projected dues. Counting them as actuals would double-count them (in Net
+  // AND in Due) before they happen. Past months use the whole month. Same
+  // "cap actuals at today" rule as the budget/forecast reports — keeps actual
+  // vs projected separate (CLAUDE.md rule #5).
+  const isCurrentMonth = y === now.getFullYear() && m === now.getMonth();
+  const actualsTo = isCurrentMonth ? now : monthEnd;
 
-  // Real income/expense per day, within the visible month only.
+  // Real income/expense per day (actuals only — capped at today this month).
   const byDay = new Map(); // dayKey -> { income, expense, count }
   for (const t of transactions || []) {
     const d = new Date(t.date);
-    if (d < monthStart || d > monthEnd) continue;
+    if (d < monthStart || d > actualsTo) continue;
     const k = dayKey(d);
     let row = byDay.get(k);
     if (!row) { row = { income: 0, expense: 0, count: 0 }; byDay.set(k, row); }
@@ -107,7 +116,7 @@ export const cashflowCalendar = (transactions, dues = [], { year, month, now = n
     weeks,
     totals: { income, expense, net: income - expense },
     dueTotal, daysInMonth, activeDays,
-    isCurrentMonth: y === now.getFullYear() && m === now.getMonth(),
+    isCurrentMonth,
   };
 };
 
