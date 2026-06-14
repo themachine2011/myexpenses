@@ -39,6 +39,15 @@ import { BillsPage } from './2026-06-11-feature-bills.jsx';
 import { YearReviewPage } from './2026-06-11-feature-year-review.jsx';
 import { MonthComparePage } from './2026-06-11-feature-month-compare.jsx';
 import { AlertsPage } from './2026-06-11-feature-alerts.jsx';
+// 2026-06-12 feature review: week digest, committed-vs-flexible split, and
+// no-spend streaks (each also has a Dashboard preview in pages.jsx).
+import { WeekReviewPage } from './2026-06-12-feature-week-review.jsx';
+import { FixedFlexPage } from './2026-06-12-feature-fixed-flex.jsx';
+import { StreaksPage } from './2026-06-12-feature-streaks.jsx';
+// 2026-06-14 feature review: cashflow calendar (month-grid net + due overlay)
+// and what-if spending simulator (reuses the projection engine).
+import { CashflowCalendarPage } from './2026-06-14-feature-cashflow-calendar.jsx';
+import { WhatIfPage } from './2026-06-14-feature-whatif.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -68,6 +77,8 @@ const DASHBOARD_PANELS = [
   { id: 'previewsForward', label: 'Forecast · Goals · Patterns' },
   { id: 'previewsMoney', label: 'Budgets · Income · Bills' },
   { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
+  { id: 'previewsRhythm', label: 'Week · Fixed/Flex · Streaks' },
+  { id: 'previewsPlanning', label: 'Calendar · What-If' },
 ];
 
 // Core tabs stay as always-visible pills. The twelve analytics tabs from the
@@ -93,6 +104,8 @@ const NAV_GROUPS = [
     label: 'Insights',
     items: [
       { id: 'health', label: 'Health' },
+      { id: 'week', label: 'Week' },
+      { id: 'streaks', label: 'Streaks' },
       { id: 'trends', label: 'Trends' },
       { id: 'merchants', label: 'Merchants' },
       { id: 'patterns', label: 'Patterns' },
@@ -110,6 +123,9 @@ const NAV_GROUPS = [
       { id: 'forecast', label: 'Forecast' },
       { id: 'goals', label: 'Goals' },
       { id: 'budgets', label: 'Budgets' },
+      { id: 'fixedflex', label: 'Fixed/Flex' },
+      { id: 'whatif', label: 'What-If' },
+      { id: 'cashflowCalendar', label: 'Calendar' },
       { id: 'bills', label: 'Bills' },
       { id: 'subscriptions', label: 'Subscriptions' },
       { id: 'debts', label: 'Debts' },
@@ -328,6 +344,11 @@ const App = () => {
       case 'yearly':      return <YearReviewPage />;
       case 'compare':     return <MonthComparePage />;
       case 'alerts':      return <AlertsPage />;
+      case 'week':        return <WeekReviewPage />;
+      case 'fixedflex':   return <FixedFlexPage />;
+      case 'streaks':     return <StreaksPage />;
+      case 'cashflowCalendar': return <CashflowCalendarPage />;
+      case 'whatif':      return <WhatIfPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;
