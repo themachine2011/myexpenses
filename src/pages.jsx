@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
 import { resolveRange, REQUIRED_CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
 import { fmtCurrency } from './tokens.jsx';
-import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries } from './charts.jsx';
+import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries, monthBucketTotals } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
@@ -35,6 +35,9 @@ import { FixedFlexPreview } from './2026-06-12-feature-fixed-flex.jsx';
 import { StreaksPreview } from './2026-06-12-feature-streaks.jsx';
 import { CashflowCalendarPreview } from './2026-06-14-feature-cashflow-calendar.jsx';
 import { WhatIfPreview } from './2026-06-14-feature-whatif.jsx';
+import { AllowancePreview } from './2026-06-15-feature-allowance.jsx';
+// 2026-06-16 feature review — Recurring Cost Radar preview.
+import { RecurringRadarPreview } from './2026-06-16-feature-recurring-radar.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1602,15 +1605,30 @@ export const Dashboard = () => {
     [transactions]
   );
 
-  const currentMonth = series[1] || { income: 0, fixed: 0, variable: 0, cashflow: 0 };
-  const prevMonth = series[0] || { income: 1, cashflow: 1 };
+  // KPI row reflects the month SO FAR (capped at today), consistent with the
+  // Forecast / Budgets / Health / Trends tabs: future-dated rows (e.g. a pending
+  // financing instalment later this month) are not counted as already-spent.
+  // The cash-flow chart below keeps the full `series` (it intentionally spans
+  // future months). "vs last month" compares the same elapsed window — month so
+  // far vs last month through the same day — so the delta stays fair.
+  const now = new Date();
+  const dayCap = now.getDate();
+  const prevBase = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const currentMonth = useMemo(
+    () => monthBucketTotals(transactions, now.getFullYear(), now.getMonth(), dayCap),
+    [transactions]
+  );
+  const prevMonth = useMemo(
+    () => monthBucketTotals(transactions, prevBase.getFullYear(), prevBase.getMonth(), dayCap),
+    [transactions]
+  );
   const incomeDelta = (currentMonth.income - prevMonth.income) / Math.max(1, prevMonth.income) * 100;
   const cashflowDelta = (currentMonth.cashflow - prevMonth.cashflow) / Math.max(1, Math.abs(prevMonth.cashflow)) * 100;
   const savingsRate = currentMonth.income > 0 ? currentMonth.cashflow / currentMonth.income * 100 : 0;
 
-  // Year-over-year deltas for each KPI: compare current calendar month to the
-  // same month last year. Helpers in context compute { current, prior, pct, hasPrior }.
-  const now    = new Date();
+  // Year-over-year deltas for each KPI: compare this month so far to the same
+  // period last year (yoyDelta caps the in-progress month at today on both
+  // sides). Helpers in context compute { current, prior, pct, hasPrior }.
   const yoyInc = useMemo(
     () => yoyDelta(now.getFullYear(), now.getMonth(), (txs) => txs.reduce((s, t) => s + (t.type === 'income' && t.category !== 'Savings' ? t.amount : 0), 0)),
     [transactions, yoyDelta]
@@ -1699,7 +1717,8 @@ export const Dashboard = () => {
       )}
 
       {/* 2026-06-11 feature review — preview cards for Budgets, Income, Bills.
-          Each links into its own tab. */}
+          2026-06-16 adds Recurring Radar to the same money row. Each links into
+          its own tab. */}
       {!hiddenPanels.previewsMoney && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           <PanelErrorBoundary label="Budgets">
@@ -1710,6 +1729,9 @@ export const Dashboard = () => {
           </PanelErrorBoundary>
           <PanelErrorBoundary label="Upcoming Bills">
             <BillsPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Recurring Radar">
+            <RecurringRadarPreview />
           </PanelErrorBoundary>
         </div>
       )}
@@ -1747,7 +1769,8 @@ export const Dashboard = () => {
       )}
 
       {/* 2026-06-14 feature review — preview cards for Cashflow Calendar and
-          What-If Simulator. Each links into its own tab. */}
+          What-If Simulator. 2026-06-15 adds Daily Allowance to the same row.
+          Each links into its own tab. */}
       {!hiddenPanels.previewsPlanning && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           <PanelErrorBoundary label="Cashflow Calendar">
@@ -1755,6 +1778,9 @@ export const Dashboard = () => {
           </PanelErrorBoundary>
           <PanelErrorBoundary label="What-If Simulator">
             <WhatIfPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Daily Allowance">
+            <AllowancePreview />
           </PanelErrorBoundary>
         </div>
       )}

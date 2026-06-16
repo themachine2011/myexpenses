@@ -50,9 +50,14 @@ const Sparkline = ({ values, color, tk, w = 120, h = 30 }) => {
 const useTrends = () => {
   const { transactions } = useAppContext();
   return useMemo(() => {
-    const cur = monthRangeFor(0);
-    const prev = monthRangeFor(1);
-    const curMap = categoryExpenseTotals(transactions, cur.from, cur.to);
+    const now = new Date();
+    const cur = monthRangeFor(0, now);
+    const prev = monthRangeFor(1, now);
+    // Current month is month-to-date (capped at today), like Month Compare's
+    // in-progress month: future-dated instalments seeded later this month must
+    // not count as already-spent (CLAUDE.md rule #5). Past months use the whole
+    // month, so the comparison baseline is unaffected.
+    const curMap = categoryExpenseTotals(transactions, cur.from, now);
     const prevMap = categoryExpenseTotals(transactions, prev.from, prev.to);
     const series = monthlyExpenseSeries(transactions, 6);
     const cats = new Set([...curMap.keys(), ...prevMap.keys()]);
@@ -61,7 +66,11 @@ const useTrends = () => {
       const curV = curMap.get(c) || 0;
       const prevV = prevMap.get(c) || 0;
       const spark = series.map((m) => {
-        const r = { from: new Date(m.year, m.monthIndex, 1), to: new Date(m.year, m.monthIndex + 1, 0, 23, 59, 59, 999) };
+        const isCurMonth = m.year === now.getFullYear() && m.monthIndex === now.getMonth();
+        const r = {
+          from: new Date(m.year, m.monthIndex, 1),
+          to: isCurMonth ? now : new Date(m.year, m.monthIndex + 1, 0, 23, 59, 59, 999),
+        };
         return categoryExpenseTotals(transactions, r.from, r.to).get(c) || 0;
       });
       rows.push({ category: c, cur: curV, prev: prevV, delta: curV - prevV, spark });

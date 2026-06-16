@@ -42,8 +42,14 @@ const toneColor = (tk, tone) =>
 const useHealth = () => {
   const { transactions, savingsTotal } = useAppContext();
   return useMemo(() => {
-    const cur = monthRangeFor(0);
-    const totals = periodTotals(transactions, cur.from, cur.to);
+    const now = new Date();
+    const cur = monthRangeFor(0, now);
+    // Current-month actuals stop at today, matching Forecast / Budgets / Month
+    // Compare / Allowance: the app seeds pending financing instalments as
+    // future-dated rows later this month, and counting them as already-spent
+    // would inflate expense/fixed and drag the score down before they happen
+    // (CLAUDE.md rule #5 — actual vs projected stay separate).
+    const totals = periodTotals(transactions, cur.from, now);
     // Average real monthly expense over the trailing 6 months (for runway).
     const series = monthlyExpenseSeries(transactions, 6);
     const withSpend = series.filter((m) => m.expense > 0);
