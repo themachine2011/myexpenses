@@ -52,6 +52,10 @@ import { WhatIfPage } from './2026-06-14-feature-whatif.jsx';
 // "Compare" hub that nests Month Compare + Year in Review under one tab.
 import { AllowancePage } from './2026-06-15-feature-allowance.jsx';
 import { ComparePage } from './2026-06-15-feature-compare-hub.jsx';
+// 2026-06-16 feature review: Recurring Cost Radar (auto-detects subscriptions
+// from real transactions) plus a "Behaviour" hub nesting Trends + Patterns.
+import { RecurringRadarPage } from './2026-06-16-feature-recurring-radar.jsx';
+import { BehaviourPage } from './2026-06-16-feature-behaviour-hub.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -79,7 +83,7 @@ const DASHBOARD_PANELS = [
   // the tabs themselves (they stay reachable from the nav groups).
   { id: 'previewsAnalytics', label: 'Health · Trends · Merchants' },
   { id: 'previewsForward', label: 'Forecast · Goals · Patterns' },
-  { id: 'previewsMoney', label: 'Budgets · Income · Bills' },
+  { id: 'previewsMoney', label: 'Budgets · Income · Bills · Recurring' },
   { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
   { id: 'previewsRhythm', label: 'Week · Fixed/Flex · Streaks' },
   { id: 'previewsPlanning', label: 'Calendar · What-If · Allowance' },
@@ -110,9 +114,11 @@ const NAV_GROUPS = [
       { id: 'health', label: 'Health' },
       { id: 'week', label: 'Week' },
       { id: 'streaks', label: 'Streaks' },
-      { id: 'trends', label: 'Trends' },
+      // 2026-06-16 nest: Trends + Patterns now live under one "Behaviour" hub
+      // (sub-tabs Trends / Patterns). The standalone `trends`/`patterns` routes
+      // stay registered so the Dashboard preview cards still deep-link to each.
+      { id: 'behaviourHub', label: 'Behaviour' },
       { id: 'merchants', label: 'Merchants' },
-      { id: 'patterns', label: 'Patterns' },
       { id: 'income', label: 'Income' },
       // 2026-06-15 nest: Yearly + Compare now live under one "Compare" hub
       // (sub-tabs Months / Year). The standalone `yearly`/`compare` routes stay
@@ -135,6 +141,8 @@ const NAV_GROUPS = [
       { id: 'cashflowCalendar', label: 'Calendar' },
       { id: 'bills', label: 'Bills' },
       { id: 'subscriptions', label: 'Subscriptions' },
+      // 2026-06-16: auto-detected recurring charges, sibling to manual Subscriptions.
+      { id: 'recurringRadar', label: 'Recurring' },
       { id: 'debts', label: 'Debts' },
     ],
   },
@@ -341,6 +349,7 @@ const App = () => {
       case 'planning':    return <PlanningPage />;
       case 'health':      return <HealthScorePage />;
       case 'trends':      return <SpendingTrendsPage />;
+      case 'behaviourHub':return <BehaviourPage />;
       case 'merchants':   return <MerchantsPage />;
       case 'forecast':    return <CashForecastPage />;
       case 'goals':       return <SavingsGoalsPage />;
@@ -358,6 +367,7 @@ const App = () => {
       case 'cashflowCalendar': return <CashflowCalendarPage />;
       case 'whatif':      return <WhatIfPage />;
       case 'allowance':   return <AllowancePage />;
+      case 'recurringRadar': return <RecurringRadarPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;

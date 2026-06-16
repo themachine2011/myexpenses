@@ -36,6 +36,8 @@ import { StreaksPreview } from './2026-06-12-feature-streaks.jsx';
 import { CashflowCalendarPreview } from './2026-06-14-feature-cashflow-calendar.jsx';
 import { WhatIfPreview } from './2026-06-14-feature-whatif.jsx';
 import { AllowancePreview } from './2026-06-15-feature-allowance.jsx';
+// 2026-06-16 feature review — Recurring Cost Radar preview.
+import { RecurringRadarPreview } from './2026-06-16-feature-recurring-radar.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1715,7 +1717,8 @@ export const Dashboard = () => {
       )}
 
       {/* 2026-06-11 feature review — preview cards for Budgets, Income, Bills.
-          Each links into its own tab. */}
+          2026-06-16 adds Recurring Radar to the same money row. Each links into
+          its own tab. */}
       {!hiddenPanels.previewsMoney && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           <PanelErrorBoundary label="Budgets">
@@ -1726,6 +1729,9 @@ export const Dashboard = () => {
           </PanelErrorBoundary>
           <PanelErrorBoundary label="Upcoming Bills">
             <BillsPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Recurring Radar">
+            <RecurringRadarPreview />
           </PanelErrorBoundary>
         </div>
       )}
