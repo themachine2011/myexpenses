@@ -422,10 +422,19 @@ export const dailySpendMap = (transactions, rangeDays = 365, now = new Date()) =
 
 // Year-over-year delta. `selectorFn(monthTxs)` reduces a month's transactions
 // to a single number (e.g. sum of expenses). Returns { current, prior, pct, hasPrior }.
-export const yoyDelta = (transactions, year, month, selectorFn) => {
+export const yoyDelta = (transactions, year, month, selectorFn, now = new Date()) => {
+  // When the target is the in-progress current month, compare like-for-like:
+  // this month up to today vs the same month last year up to the same day.
+  // Future-dated rows this month (e.g. a pending instalment) must not inflate
+  // the current side, and the prior year is capped to the same elapsed window so
+  // the % stays fair. Fully-past target months use the whole month on both sides.
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+  const dayCap = isCurrentMonth ? now.getDate() : null;
   const inMonth = (y, m) => (transactions || []).filter((t) => {
     const d = new Date(t.date);
-    return d.getFullYear() === y && d.getMonth() === m;
+    if (d.getFullYear() !== y || d.getMonth() !== m) return false;
+    if (dayCap != null && d.getDate() > dayCap) return false;
+    return true;
   });
   const current = selectorFn(inMonth(year, month));
   const prior   = selectorFn(inMonth(year - 1, month));

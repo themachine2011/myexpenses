@@ -487,3 +487,23 @@ export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward =
   }
   return out;
 };
+
+// Totals for ONE calendar month using the exact same income / fixed / variable
+// definitions as buildMonthlySeries, optionally capped at a day-of-month
+// (inclusive). `dayCap = null` means the whole month. This lets the Dashboard
+// KPI row read month-to-date (future-dated rows — e.g. a pending financing
+// instalment later this month — are left out until they actually occur),
+// without changing the multi-month `series` the cash-flow chart needs (that
+// series intentionally still spans future months).
+export const monthBucketTotals = (transactions, year, month, dayCap = null) => {
+  let income = 0, fixed = 0, variable = 0;
+  for (const tx of transactions || []) {
+    const d = new Date(tx.date);
+    if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+    if (dayCap != null && d.getDate() > dayCap) continue;
+    if (tx.type === 'income') income += tx.amount;
+    else if (tx.locked) fixed += tx.amount;
+    else variable += tx.amount;
+  }
+  return { income, fixed, variable, expense: fixed + variable, cashflow: income - fixed - variable };
+};

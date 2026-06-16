@@ -14,7 +14,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
-import { periodRangeFor, monthRangeFor, merchantTotals } from './2026-06-09-utils-analytics.js';
+import { periodRangeFor, merchantTotals } from './2026-06-09-utils-analytics.js';
 
 const card = (tk) => ({
   background: tk.surface, border: `1px solid ${tk.hairline}`, borderRadius: 18, padding: 24,
@@ -112,8 +112,12 @@ export const MerchantsPage = () => {
 export const MerchantsPreview = () => {
   const { themeTokens: tk, fmt, transactions, setView } = useAppContext();
   const top = useMemo(() => {
-    const cur = monthRangeFor(0);
-    return merchantTotals(transactions, cur.from, cur.to)[0] || null;
+    // Match the Merchants page's "This month" period (month-to-date): capping at
+    // today keeps a future-dated instalment from showing up as the top merchant
+    // before it's actually paid. Previously this used the whole calendar month,
+    // so the preview disagreed with the page it links into.
+    const { from, to } = periodRangeFor('month');
+    return merchantTotals(transactions, from, to)[0] || null;
   }, [transactions]);
   return (
     <div onClick={() => setView('merchants')} className="aurum-card-hover" style={{ ...card(tk), cursor: 'pointer' }}>

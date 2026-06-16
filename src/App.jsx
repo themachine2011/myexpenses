@@ -48,6 +48,10 @@ import { StreaksPage } from './2026-06-12-feature-streaks.jsx';
 // and what-if spending simulator (reuses the projection engine).
 import { CashflowCalendarPage } from './2026-06-14-feature-cashflow-calendar.jsx';
 import { WhatIfPage } from './2026-06-14-feature-whatif.jsx';
+// 2026-06-15 feature review: Daily Allowance (safe-to-spend per day) plus a
+// "Compare" hub that nests Month Compare + Year in Review under one tab.
+import { AllowancePage } from './2026-06-15-feature-allowance.jsx';
+import { ComparePage } from './2026-06-15-feature-compare-hub.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -78,7 +82,7 @@ const DASHBOARD_PANELS = [
   { id: 'previewsMoney', label: 'Budgets · Income · Bills' },
   { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
   { id: 'previewsRhythm', label: 'Week · Fixed/Flex · Streaks' },
-  { id: 'previewsPlanning', label: 'Calendar · What-If' },
+  { id: 'previewsPlanning', label: 'Calendar · What-If · Allowance' },
 ];
 
 // Core tabs stay as always-visible pills. The twelve analytics tabs from the
@@ -110,8 +114,10 @@ const NAV_GROUPS = [
       { id: 'merchants', label: 'Merchants' },
       { id: 'patterns', label: 'Patterns' },
       { id: 'income', label: 'Income' },
-      { id: 'yearly', label: 'Yearly' },
-      { id: 'compare', label: 'Compare' },
+      // 2026-06-15 nest: Yearly + Compare now live under one "Compare" hub
+      // (sub-tabs Months / Year). The standalone `yearly`/`compare` routes stay
+      // registered so the Dashboard preview cards still deep-link to each one.
+      { id: 'compareHub', label: 'Compare' },
       { id: 'alerts', label: 'Alerts' },
       { id: 'timeline', label: 'Timeline' },
     ],
@@ -121,6 +127,7 @@ const NAV_GROUPS = [
     label: 'Plan',
     items: [
       { id: 'forecast', label: 'Forecast' },
+      { id: 'allowance', label: 'Allowance' },
       { id: 'goals', label: 'Goals' },
       { id: 'budgets', label: 'Budgets' },
       { id: 'fixedflex', label: 'Fixed/Flex' },
@@ -343,12 +350,14 @@ const App = () => {
       case 'bills':       return <BillsPage />;
       case 'yearly':      return <YearReviewPage />;
       case 'compare':     return <MonthComparePage />;
+      case 'compareHub':  return <ComparePage />;
       case 'alerts':      return <AlertsPage />;
       case 'week':        return <WeekReviewPage />;
       case 'fixedflex':   return <FixedFlexPage />;
       case 'streaks':     return <StreaksPage />;
       case 'cashflowCalendar': return <CashflowCalendarPage />;
       case 'whatif':      return <WhatIfPage />;
+      case 'allowance':   return <AllowancePage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;
