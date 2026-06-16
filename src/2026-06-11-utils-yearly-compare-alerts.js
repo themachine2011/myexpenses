@@ -166,17 +166,25 @@ const parseMonthKey = (key) => {
   const [y, m] = String(key || '').split('-').map(Number);
   return { year: y || 0, monthIndex: (m || 1) - 1 };
 };
-const monthRangeOf = ({ year, monthIndex }) => ({
-  from: new Date(year, monthIndex, 1),
-  to: new Date(year, monthIndex + 1, 0, 23, 59, 59, 999),
-});
+// The in-progress month is partial: cap its upper bound at `now` so pending
+// future-dated rows this month (e.g. the seeded financing instalment later in
+// the month) don't inflate the comparison before they occur. Past months use
+// the full calendar month. Same "cap actuals at today" rule the other
+// current-period reports use (CLAUDE.md rule #5: actual vs projected stay apart).
+const monthRangeOf = ({ year, monthIndex }, now = new Date()) => {
+  const isCurrent = year === now.getFullYear() && monthIndex === now.getMonth();
+  return {
+    from: new Date(year, monthIndex, 1),
+    to: isCurrent ? now : new Date(year, monthIndex + 1, 0, 23, 59, 59, 999),
+  };
+};
 
 // Side-by-side comparison of two calendar months ("a" is the month under the
 // spotlight, "b" the baseline). Per-category rows are real expenses only and
 // are sorted by the size of the change.
-export const compareMonths = (transactions, aKey, bKey) => {
+export const compareMonths = (transactions, aKey, bKey, now = new Date()) => {
   const A = parseMonthKey(aKey), B = parseMonthKey(bKey);
-  const ra = monthRangeOf(A), rb = monthRangeOf(B);
+  const ra = monthRangeOf(A, now), rb = monthRangeOf(B, now);
   const ta = periodTotals(transactions, ra.from, ra.to);
   const tb = periodTotals(transactions, rb.from, rb.to);
   const ca = categoryExpenseTotals(transactions, ra.from, ra.to);

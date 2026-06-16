@@ -29,6 +29,12 @@ import { BillsPreview } from './2026-06-11-feature-bills.jsx';
 import { YearReviewPreview } from './2026-06-11-feature-year-review.jsx';
 import { MonthComparePreview } from './2026-06-11-feature-month-compare.jsx';
 import { AlertsPreview } from './2026-06-11-feature-alerts.jsx';
+// 2026-06-12 feature review previews (Week / Fixed-vs-Flex / Streaks).
+import { WeekReviewPreview } from './2026-06-12-feature-week-review.jsx';
+import { FixedFlexPreview } from './2026-06-12-feature-fixed-flex.jsx';
+import { StreaksPreview } from './2026-06-12-feature-streaks.jsx';
+import { CashflowCalendarPreview } from './2026-06-14-feature-cashflow-calendar.jsx';
+import { WhatIfPreview } from './2026-06-14-feature-whatif.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1720,6 +1726,35 @@ export const Dashboard = () => {
           </PanelErrorBoundary>
           <PanelErrorBoundary label="Spending Alerts">
             <AlertsPreview />
+          </PanelErrorBoundary>
+        </div>
+      )}
+
+      {/* 2026-06-12 feature review — preview cards for Week, Fixed/Flex,
+          Streaks. Each links into its own tab. */}
+      {!hiddenPanels.previewsRhythm && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <PanelErrorBoundary label="This Week">
+            <WeekReviewPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Fixed vs Flex">
+            <FixedFlexPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="No-Spend Streaks">
+            <StreaksPreview />
+          </PanelErrorBoundary>
+        </div>
+      )}
+
+      {/* 2026-06-14 feature review — preview cards for Cashflow Calendar and
+          What-If Simulator. Each links into its own tab. */}
+      {!hiddenPanels.previewsPlanning && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <PanelErrorBoundary label="Cashflow Calendar">
+            <CashflowCalendarPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="What-If Simulator">
+            <WhatIfPreview />
           </PanelErrorBoundary>
         </div>
       )}
