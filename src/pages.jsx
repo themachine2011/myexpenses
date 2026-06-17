@@ -38,6 +38,8 @@ import { WhatIfPreview } from './2026-06-14-feature-whatif.jsx';
 import { AllowancePreview } from './2026-06-15-feature-allowance.jsx';
 // 2026-06-16 feature review — Recurring Cost Radar preview.
 import { RecurringRadarPreview } from './2026-06-16-feature-recurring-radar.jsx';
+// 2026-06-17 feature review — Net-Worth Trajectory preview.
+import { NetWorthTrajectoryPreview } from './2026-06-17-feature-networth-trajectory.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1701,7 +1703,8 @@ export const Dashboard = () => {
       )}
 
       {/* 2026-06-10 feature review — preview cards for Forecast, Goals,
-          Patterns. Each links into its own tab. */}
+          Patterns. 2026-06-17 adds Net-Worth Trajectory to the same forward
+          row. Each links into its own tab. */}
       {!hiddenPanels.previewsForward && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           <PanelErrorBoundary label="Month-End Forecast">
@@ -1712,6 +1715,9 @@ export const Dashboard = () => {
           </PanelErrorBoundary>
           <PanelErrorBoundary label="Spending Patterns">
             <SpendingPatternsPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Net-Worth Trajectory">
+            <NetWorthTrajectoryPreview />
           </PanelErrorBoundary>
         </div>
       )}

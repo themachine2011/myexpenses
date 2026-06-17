@@ -56,6 +56,9 @@ import { ComparePage } from './2026-06-15-feature-compare-hub.jsx';
 // from real transactions) plus a "Behaviour" hub nesting Trends + Patterns.
 import { RecurringRadarPage } from './2026-06-16-feature-recurring-radar.jsx';
 import { BehaviourPage } from './2026-06-16-feature-behaviour-hub.jsx';
+// 2026-06-17 feature review: Net-Worth Trajectory — projects the wealth curve
+// forward from current equity + recent real saving pace (own tab + preview).
+import { NetWorthTrajectoryPage } from './2026-06-17-feature-networth-trajectory.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -82,7 +85,7 @@ const DASHBOARD_PANELS = [
   // One toggle per row so the Dashboard can be slimmed down without losing
   // the tabs themselves (they stay reachable from the nav groups).
   { id: 'previewsAnalytics', label: 'Health · Trends · Merchants' },
-  { id: 'previewsForward', label: 'Forecast · Goals · Patterns' },
+  { id: 'previewsForward', label: 'Forecast · Goals · Patterns · Trajectory' },
   { id: 'previewsMoney', label: 'Budgets · Income · Bills · Recurring' },
   { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
   { id: 'previewsRhythm', label: 'Week · Fixed/Flex · Streaks' },
@@ -135,6 +138,8 @@ const NAV_GROUPS = [
       { id: 'forecast', label: 'Forecast' },
       { id: 'allowance', label: 'Allowance' },
       { id: 'goals', label: 'Goals' },
+      // 2026-06-17: forward net-worth projection, sits with the savings cluster.
+      { id: 'trajectory', label: 'Trajectory' },
       { id: 'budgets', label: 'Budgets' },
       { id: 'fixedflex', label: 'Fixed/Flex' },
       { id: 'whatif', label: 'What-If' },
@@ -367,6 +372,7 @@ const App = () => {
       case 'cashflowCalendar': return <CashflowCalendarPage />;
       case 'whatif':      return <WhatIfPage />;
       case 'allowance':   return <AllowancePage />;
+      case 'trajectory':  return <NetWorthTrajectoryPage />;
       case 'recurringRadar': return <RecurringRadarPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
