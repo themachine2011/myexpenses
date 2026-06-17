@@ -12,6 +12,7 @@ import {
   normalizeCategoryName,
   USELESS_CATEGORY,
 } from './2026-05-19-utils-category-colors.js';
+import { detectPendingCarryovers, buildCarryoverTx } from './2026-06-17-utils-carryover.js';
 
 export { validateTransaction, validatePatch };
 export { findDuplicate, partitionDuplicates, buildDuplicateIndex };
@@ -308,6 +309,9 @@ const NETWORTH_HIST_KEY = 'aurum.networth.history.v1';
 const CATEGORY_COLORS_KEY = 'aurum.categoryColors.v1';
 const CATEGORIES_KEY      = 'aurum.categories.v1';
 const DASHBOARD_LAYOUT_KEY = 'aurum.dashboardLayout.v1';
+// Months the user chose NOT to carry over (so the confirm-first prompt doesn't
+// nag again). Additive key; old data unaffected.
+const CARRYOVER_DISMISSED_KEY = 'aurum.carryover.dismissed.v1';
 
 // ----------------------------------------------------------------------------
 // Auto-categorization: suggest a category by walking the user-defined rules.
@@ -578,6 +582,10 @@ export const useAppState = () => {
   const [debtsState, setDebtsState] = useStoredState(DEBTS_KEY,   []);
   const [reminders, setReminders] = useStoredState(REMINDERS_KEY, []);
   const [nwHistory, setNwHistory] = useStoredState(NETWORTH_HIST_KEY, []);
+  // Negative-month carryover: remembers which months the user dismissed so the
+  // confirm-first prompt won't re-ask. The carryover rows themselves live in the
+  // normal transactions list (tagged 'carryover'), not here.
+  const [carryoverDismissed, setCarryoverDismissed] = useStoredState(CARRYOVER_DISMISSED_KEY, []);
   const [categoryColorOverrides, setCategoryColorOverrides] = useStoredState(CATEGORY_COLORS_KEY, {});
   // User-defined category list. Seeded from the built-in CATEGORIES so existing
   // installs see no change; from here on the user can add or remove their own.
@@ -838,6 +846,23 @@ export const useAppState = () => {
       date: new Date().toISOString(),
     });
   };
+
+  // ----- Negative-month carryover (confirm-first) --------------------------
+  // The detector looks only at the previous completed month and skips months
+  // already carried over or dismissed. `confirmCarryover` creates the 'Debts'
+  // charge directly (NOT via addTransaction, whose duplicate guard could block
+  // it) using a stable id so a reload / double-confirm never duplicates it.
+  const pendingCarryovers = () => detectPendingCarryovers(transactions, carryoverDismissed, new Date());
+  const confirmCarryover = (pending) => {
+    if (!pending || !(pending.deficit > 0)) return;
+    const row = buildCarryoverTx(pending);
+    setTransactions((p) => {
+      if (p.some((t) => t.id === row.id)) return p;
+      return [row, ...p].sort((a, b) => new Date(b.date) - new Date(a.date));
+    });
+  };
+  const dismissCarryover = (ym) =>
+    setCarryoverDismissed((p) => (p.includes(ym) ? p : [...p, ym]));
   // Import a batch of transactions. Each row is run through the full validator;
   // invalid rows are dropped. Rows that fingerprint-match an existing transaction
   // (same day, amount, method, description) or another row in the same batch are
@@ -1004,6 +1029,8 @@ export const useAppState = () => {
     transactions, addTransaction, addInstallmentPurchase, addSplitPurchase, editTransaction, deleteTransaction, handleClearHistory,
     importTransactions,
     savingsTotal, addSaving, goalAmount, setGoalAmount,
+    // Negative-month carryover (confirm-first)
+    carryoverDismissed, pendingCarryovers, confirmCarryover, dismissCarryover,
     netWorthState, setNetWorthState,
     debtsState, setDebtsState,
     cashTimeframe, setCashTimeframe,

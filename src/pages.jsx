@@ -40,6 +40,8 @@ import { AllowancePreview } from './2026-06-15-feature-allowance.jsx';
 import { RecurringRadarPreview } from './2026-06-16-feature-recurring-radar.jsx';
 // 2026-06-17 feature review — Net-Worth Trajectory preview.
 import { NetWorthTrajectoryPreview } from './2026-06-17-feature-networth-trajectory.jsx';
+// 2026-06-17 — confirm-first carryover prompt for a negative previous month.
+import { CarryoverPrompt } from './2026-06-17-feature-carryover.jsx';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -1664,6 +1666,9 @@ export const Dashboard = () => {
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
+      <PanelErrorBoundary label="Carryover">
+        <CarryoverPrompt />
+      </PanelErrorBoundary>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
         <KPICard label="Liquid Income" value={fmt(currentMonth.income)} delta={incomeDelta}
           valueColor={currentMonth.income >= 0 ? themeTokens.positive : themeTokens.negative}
@@ -1678,7 +1683,7 @@ export const Dashboard = () => {
         <KPICard label="Savings Rate" value={`${savingsRate.toFixed(1)}%`} positive={savingsRate >= 20} delta={savingsRate}
           valueColor={themeTokens.positive}
           blurred={privacyHidden} />
-        <KPICard label="Fixed Expenses" value={fmt(currentMonth.fixed)} positive={false}
+        <KPICard label="Fixed Expenses" value={fmt(currentMonth.fixedFull)} positive={false}
           valueColor={themeTokens.negative}
           yoy={yoyFixed}
           blurred={privacyHidden} />

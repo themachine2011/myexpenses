@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AppContext, useAppState, currentMonthRange } from './context.jsx';
+import { AppContext, useAppState } from './context.jsx';
+import { monthBucketTotals } from './charts.jsx';
 import { ACCENT_PRESETS, FONT_PAIRS } from './tokens.jsx';
 import { formatAge } from './2026-05-18-fx-rate-service.js';
 import { AurumLoader, AurumToken3D } from './loader.jsx';
@@ -337,9 +338,16 @@ const App = () => {
     `;
   }, [tk, fonts]);
 
+  // Header "Wallet" = this month's Cash Flow, the SAME number shown on the
+  // Dashboard "Cash Flow" KPI (income − fixed − variable, month-to-date). Using
+  // the same monthBucketTotals call guarantees Wallet and Cash Flow always
+  // agree. (Note: this follows the Cash Flow KPI's existing Savings handling —
+  // it no longer special-cases money moved into Savings the way the old
+  // available-cash figure did. computeAvailableCash is left in place for other
+  // callers / a possible future toggle.)
   const balance = useMemo(() => {
-    const { from, to } = currentMonthRange();
-    return state.computeAvailableCash({ from, to });
+    const now = new Date();
+    return monthBucketTotals(state.transactions, now.getFullYear(), now.getMonth(), now.getDate()).cashflow;
   }, [state.transactions]);
 
   const renderView = () => {

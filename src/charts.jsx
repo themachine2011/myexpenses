@@ -496,14 +496,26 @@ export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward =
 // without changing the multi-month `series` the cash-flow chart needs (that
 // series intentionally still spans future months).
 export const monthBucketTotals = (transactions, year, month, dayCap = null) => {
-  let income = 0, fixed = 0, variable = 0;
+  let income = 0, fixed = 0, variable = 0, fixedFull = 0;
   for (const tx of transactions || []) {
     const d = new Date(tx.date);
     if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-    if (dayCap != null && d.getDate() > dayCap) continue;
-    if (tx.type === 'income') income += tx.amount;
-    else if (tx.locked) fixed += tx.amount;
-    else variable += tx.amount;
+    const capped = dayCap != null && d.getDate() > dayCap;
+    if (tx.type === 'income') {
+      if (capped) continue;
+      income += tx.amount;
+    } else if (tx.locked) {
+      // `fixedFull` is the WHOLE-month fixed commitment (financing instalment,
+      // subscriptions, debts) — it ignores the day cap so a charge due later
+      // this month (e.g. the Triumph instalment on the 18th) still shows as a
+      // known fixed cost. `fixed` stays month-to-date so cash flow / savings
+      // rate keep counting only money already moved.
+      fixedFull += tx.amount;
+      if (!capped) fixed += tx.amount;
+    } else {
+      if (capped) continue;
+      variable += tx.amount;
+    }
   }
-  return { income, fixed, variable, expense: fixed + variable, cashflow: income - fixed - variable };
+  return { income, fixed, fixedFull, variable, expense: fixed + variable, cashflow: income - fixed - variable };
 };

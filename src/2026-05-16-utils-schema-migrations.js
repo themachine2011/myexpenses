@@ -19,6 +19,7 @@ export const CURRENT_VERSIONS = {
   'aurum.backup.settings.v1':   1,
   'aurum.glassTheme.design.v2': 1,
   'aurum.glassTheme.mode.v2':   1,
+  'aurum.carryover.dismissed.v1': 1,
 };
 
 // Each entry maps storageKey -> { fromVersion: upgradeFn }.
@@ -55,6 +56,7 @@ export const MIGRATIONS = {
   'aurum.reminders.v1':        { 0: (d) => d },
   'aurum.networth.history.v1': { 0: (d) => d },
   'aurum.backup.settings.v1':  { 0: (d) => d },
+  'aurum.carryover.dismissed.v1': { 0: (d) => d },
 
   // Glass-theme enums: validate the stored value against the allowed set and
   // fall back to default if it's anything else (handles stale values left
