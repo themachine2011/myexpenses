@@ -40,6 +40,8 @@ import { AllowancePreview } from './2026-06-15-feature-allowance.jsx';
 import { RecurringRadarPreview } from './2026-06-16-feature-recurring-radar.jsx';
 // 2026-06-17 feature review — Net-Worth Trajectory preview.
 import { NetWorthTrajectoryPreview } from './2026-06-17-feature-networth-trajectory.jsx';
+// 2026-06-18 feature review — Dashboard preview for Emergency Fund / Safety Net.
+import { EmergencyFundPreview } from './2026-06-18-feature-emergency-fund.jsx';
 // 2026-06-17 — confirm-first carryover prompt for a negative previous month.
 import { CarryoverPrompt } from './2026-06-17-feature-carryover.jsx';
 
@@ -1723,6 +1725,9 @@ export const Dashboard = () => {
           </PanelErrorBoundary>
           <PanelErrorBoundary label="Net-Worth Trajectory">
             <NetWorthTrajectoryPreview />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Safety Net">
+            <EmergencyFundPreview />
           </PanelErrorBoundary>
         </div>
       )}

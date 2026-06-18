@@ -179,11 +179,20 @@ export const HealthScorePage = () => {
         <div style={{ color: tk.textDim, fontSize: 13 }}>
           Want to move the needle? The savings rate and spending sub-scores react fastest to changes this month.
         </div>
-        <button onClick={() => setView('transactions')} style={{
-          background: 'transparent', border: `1px solid ${tk.hairline2 || tk.hairline}`, color: tk.text,
-          padding: '8px 16px', borderRadius: 999, fontFamily: 'var(--font-mono)', fontSize: 10,
-          letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
-        }}>Review transactions →</button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {/* 2026-06-18: the emergency-runway sub-score now has a dedicated,
+              actionable view — link straight to it. */}
+          <button onClick={() => setView('emergencyFund')} style={{
+            background: 'transparent', border: `1px solid ${tk.hairline2 || tk.hairline}`, color: tk.text,
+            padding: '8px 16px', borderRadius: 999, fontFamily: 'var(--font-mono)', fontSize: 10,
+            letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
+          }}>Safety net →</button>
+          <button onClick={() => setView('transactions')} style={{
+            background: 'transparent', border: `1px solid ${tk.hairline2 || tk.hairline}`, color: tk.text,
+            padding: '8px 16px', borderRadius: 999, fontFamily: 'var(--font-mono)', fontSize: 10,
+            letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
+          }}>Review transactions →</button>
+        </div>
       </div>
     </div>
   );

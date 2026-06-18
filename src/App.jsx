@@ -60,6 +60,9 @@ import { BehaviourPage } from './2026-06-16-feature-behaviour-hub.jsx';
 // 2026-06-17 feature review: Net-Worth Trajectory — projects the wealth curve
 // forward from current equity + recent real saving pace (own tab + preview).
 import { NetWorthTrajectoryPage } from './2026-06-17-feature-networth-trajectory.jsx';
+// 2026-06-18 feature review: Emergency Fund / Safety Net — months of expenses
+// the savings buffer covers + ETA to a 3/6/12-month cushion (own tab + preview).
+import { EmergencyFundPage } from './2026-06-18-feature-emergency-fund.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -86,7 +89,7 @@ const DASHBOARD_PANELS = [
   // One toggle per row so the Dashboard can be slimmed down without losing
   // the tabs themselves (they stay reachable from the nav groups).
   { id: 'previewsAnalytics', label: 'Health · Trends · Merchants' },
-  { id: 'previewsForward', label: 'Forecast · Goals · Patterns · Trajectory' },
+  { id: 'previewsForward', label: 'Forecast · Goals · Patterns · Trajectory · Safety Net' },
   { id: 'previewsMoney', label: 'Budgets · Income · Bills · Recurring' },
   { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
   { id: 'previewsRhythm', label: 'Week · Fixed/Flex · Streaks' },
@@ -141,6 +144,8 @@ const NAV_GROUPS = [
       { id: 'goals', label: 'Goals' },
       // 2026-06-17: forward net-worth projection, sits with the savings cluster.
       { id: 'trajectory', label: 'Trajectory' },
+      // 2026-06-18: emergency-fund runway, sits with the savings cluster.
+      { id: 'emergencyFund', label: 'Safety Net' },
       { id: 'budgets', label: 'Budgets' },
       { id: 'fixedflex', label: 'Fixed/Flex' },
       { id: 'whatif', label: 'What-If' },
@@ -381,6 +386,7 @@ const App = () => {
       case 'whatif':      return <WhatIfPage />;
       case 'allowance':   return <AllowancePage />;
       case 'trajectory':  return <NetWorthTrajectoryPage />;
+      case 'emergencyFund': return <EmergencyFundPage />;
       case 'recurringRadar': return <RecurringRadarPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
