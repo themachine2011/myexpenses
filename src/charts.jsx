@@ -519,3 +519,22 @@ export const monthBucketTotals = (transactions, year, month, dayCap = null) => {
   }
   return { income, fixed, fixedFull, variable, expense: fixed + variable, cashflow: income - fixed - variable };
 };
+
+// Same income / fixed / variable split as monthBucketTotals, but returns the
+// actual transaction ROWS in each bucket (not just the sums). The Wallet
+// Breakdown card uses this to list exactly the purchases that feed the header
+// "Wallet" / Cash Flow number. Keeping it right beside monthBucketTotals and
+// copying its filter line-for-line guarantees the list and the total can never
+// drift apart.
+export const monthBucketRows = (transactions, year, month, dayCap = null) => {
+  const income = [], fixed = [], variable = [];
+  for (const tx of transactions || []) {
+    const d = new Date(tx.date);
+    if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+    const capped = dayCap != null && d.getDate() > dayCap;
+    if (tx.type === 'income') { if (!capped) income.push(tx); }
+    else if (tx.locked)      { if (!capped) fixed.push(tx); }
+    else                     { if (!capped) variable.push(tx); }
+  }
+  return { income, fixed, variable };
+};

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
 import { resolveRange, REQUIRED_CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
 import { fmtCurrency } from './tokens.jsx';
-import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries, monthBucketTotals } from './charts.jsx';
+import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries, monthBucketTotals, monthBucketRows } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
@@ -4724,6 +4724,147 @@ const TrashBtn = ({ onClick, locked }) => (
     <TrashIcon />
   </button>
 );
+
+// ---------------------------------------------------------------------------
+// Wallet Breakdown — click the header "Wallet" label to reveal the purchases
+// that make up the Wallet (= this month's Cash Flow) number, right inside the
+// Dashboard. It reuses monthBucketRows (same filter as the Wallet total) so the
+// list can never disagree with the number, and reuses the SAME EditTransaction
+// Dialog / EditBtn / TrashBtn / editTransaction / deleteTransaction as the
+// Ledger — it is a small "ghost transactions" view, not a separate system.
+// Rendered by App.jsx inside <AnimatePresence>; toggled by the Wallet label.
+// ---------------------------------------------------------------------------
+
+// "2/5" if the description carries an instalment suffix like "Foo · 2/5".
+const instalmentOf = (desc) => {
+  const m = /·\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(desc || '');
+  return m ? `${m[1]}/${m[2]}` : null;
+};
+
+export const WalletBreakdownCard = ({ onClose }) => {
+  const { themeTokens: tk, transactions, fmt, editTransaction, deleteTransaction } = useAppContext();
+  const [editingTx, setEditingTx] = useState(null);
+
+  // Exact same window the header Wallet uses: current calendar month, day ≤ today.
+  const { income, fixed, variable } = useMemo(() => {
+    const now = new Date();
+    return monthBucketRows(transactions, now.getFullYear(), now.getMonth(), now.getDate());
+  }, [transactions]);
+
+  // Purchases = the expense rows (fixed + variable). Income is part of the math
+  // but is NOT a purchase, so it never appears as a row — only in the footer.
+  const purchases = useMemo(
+    () => [...fixed, ...variable].sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [fixed, variable],
+  );
+  const incomeTotal    = income.reduce((s, t) => s + (t.amount || 0), 0);
+  const purchasesTotal = purchases.reduce((s, t) => s + (t.amount || 0), 0);
+  const wallet         = incomeTotal - purchasesTotal;
+
+  const reconRow = (label, value, color, strong) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: strong ? 11 : 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: strong ? tk.text : tk.textDim }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: strong ? 15 : 12, fontWeight: strong ? 700 : 400, color }}>{value}</span>
+    </div>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0, y: -8 }}
+      animate={{ opacity: 1, height: 'auto', y: 0 }}
+      exit={{ opacity: 0, height: 0, y: -8 }}
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+      style={{ overflow: 'hidden', width: '100%', minWidth: 0 }}>
+      <div style={{
+        background: tk.surface,
+        border: `1px solid ${tk.hairline}`,
+        borderRadius: 18,
+        padding: 20,
+        backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+        boxShadow: tk.isDark ? '0 30px 60px rgba(0,0,0,0.4)' : '0 20px 50px rgba(40,30,20,0.06)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <div>
+            <Eyebrow>Wallet Breakdown</Eyebrow>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: tk.textDim, marginTop: 6, lineHeight: 1.5 }}>
+              Purchases currently included in this Wallet value
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close Wallet Breakdown"
+            style={{ background: 'transparent', border: 'none', color: tk.textDim, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', padding: '2px 4px', flexShrink: 0 }}>
+            ×
+          </button>
+        </div>
+
+        {purchases.length === 0 ? (
+          <div style={{ marginTop: 16, padding: '22px 8px', textAlign: 'center', color: tk.textDim, fontSize: 12.5, lineHeight: 1.6 }}>
+            No purchases are currently included in this Wallet value.
+          </div>
+        ) : (
+          <>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: tk.textDim, marginTop: 14 }}>
+              {purchases.length} {purchases.length === 1 ? 'purchase' : 'purchases'} · month to date
+            </div>
+            <div style={{ marginTop: 8, maxHeight: 360, overflowY: 'auto', marginLeft: -4, marginRight: -4 }}>
+              {purchases.map((tx) => {
+                const d = new Date(tx.date);
+                const inst = instalmentOf(tx.description);
+                return (
+                  <div key={tx.id} className="aurum-card-hover"
+                    style={{ padding: '9px 4px', borderBottom: `1px solid ${tk.hairline}`, borderRadius: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <div style={{ color: tk.text, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.description}>
+                        {tx.description}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: tk.text, whiteSpace: 'nowrap' }}>
+                        −{fmt(tx.amount)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap', fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: tk.textDim }}>
+                      <span>{d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}</span>
+                      <span>· {categoryLabel(tx.category)}</span>
+                      {PAYMENT_CHIP[tx.paymentMethod]
+                        ? <PaymentChip method={tx.paymentMethod} />
+                        : <span>· {tx.paymentMethod}</span>}
+                      <PurchaseNote tx={tx} />
+                      {inst && (
+                        <span style={{ background: tk.hairline2, color: tk.text, padding: '1px 6px', borderRadius: 4, letterSpacing: '0.1em' }}>
+                          {inst}
+                        </span>
+                      )}
+                      {tx.locked && <span style={{ opacity: 0.8 }}>· fixed</span>}
+                      <span style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
+                        <EditBtn locked={tx.locked} onClick={() => setEditingTx(tx)} />
+                        <TrashBtn locked={tx.locked} onClick={() => { if (confirmDelete('Delete this transaction?')) deleteTransaction(tx.id); }} />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Reconciliation — shows how the listed purchases + income produce the
+            header Wallet number, since income is intentionally not a row. */}
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${tk.hairline}`, display: 'grid', gap: 7 }}>
+          {reconRow('Income · month', `+${fmt(incomeTotal)}`, tk.positive)}
+          {reconRow('Purchases', `−${fmt(purchasesTotal)}`, tk.textDim)}
+          <div style={{ height: 1, background: tk.hairline, margin: '2px 0' }} />
+          {reconRow('Wallet', `${wallet >= 0 ? '+' : '−'}${fmt(Math.abs(wallet))}`, wallet >= 0 ? tk.positive : tk.negative, true)}
+        </div>
+      </div>
+
+      {editingTx && (
+        <EditTransactionDialog
+          tx={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSave={(patch) => { editTransaction(editingTx.id, patch); setEditingTx(null); }}
+        />
+      )}
+    </motion.div>
+  );
+};
 
 const ClearHistoryBtn = ({ onConfirm }) => {
   const { themeTokens } = useAppContext();

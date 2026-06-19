@@ -11,6 +11,7 @@ import {
   MotorcyclePage, TransactionsPage, LedgerPage, TimelinePage, DebtsPage,
   AllTransactionsPage, SubscriptionsPage, CardPurchasesPage, PlanningPage,
   ParticleField, GlobalCalendar, HistorySidebar, GlobalSearch,
+  WalletBreakdownCard,
 } from './pages.jsx';
 import { DashboardCategoriesAverageSpendingFeature } from './2026-05-19-feature-categories-average-spending.jsx';
 import {
@@ -358,6 +359,16 @@ const App = () => {
     return monthBucketTotals(state.transactions, now.getFullYear(), now.getMonth(), now.getDate()).cashflow;
   }, [state.transactions]);
 
+  // Wallet Breakdown reveal: clicking the header "Wallet" label toggles a card
+  // in the Dashboard's left sidebar listing the purchases behind this number.
+  // Hidden by default. If clicked from another tab, jump to the Dashboard first
+  // so the card is visible where it lives.
+  const [walletOpen, setWalletOpen] = useState(false);
+  const toggleWalletBreakdown = useCallback(() => {
+    if (state.view !== 'dashboard') state.setView('dashboard');
+    setWalletOpen((o) => !o);
+  }, [state.view, state.setView]);
+
   const renderView = () => {
     switch (state.view) {
       case 'dashboard':   return <Dashboard />;
@@ -442,10 +453,18 @@ const App = () => {
             <HeaderToken accentHex={tk.accent} />
 
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-              <div style={{
-                fontFamily: fonts.display, fontWeight: 700, fontSize: 28,
-                color: tk.text, letterSpacing: '-0.01em'
-              }}>Wallet</div>
+              <div
+                onClick={toggleWalletBreakdown}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleWalletBreakdown(); } }}
+                role="button"
+                tabIndex={0}
+                aria-pressed={walletOpen}
+                title="Show the purchases included in this Wallet value"
+                style={{
+                  fontFamily: fonts.display, fontWeight: 700, fontSize: 28,
+                  color: tk.text, letterSpacing: '-0.01em',
+                  cursor: 'pointer', userSelect: 'none',
+                }}>Wallet</div>
               {(() => {
                 // Wallet click-flip BRL ↔ USD (CLAUDE.md rule #26).
                 const cur = state.currency;
@@ -559,7 +578,14 @@ const App = () => {
         }}>
           <aside style={{ position: 'sticky', top: 96, display: 'grid', gap: 16 }}>
             {state.view === 'dashboard'
-              ? <DashboardCategoriesAverageSpendingFeature />
+              ? <>
+                  <AnimatePresence initial={false}>
+                    {walletOpen && (
+                      <WalletBreakdownCard key="wallet-breakdown" onClose={() => setWalletOpen(false)} />
+                    )}
+                  </AnimatePresence>
+                  <DashboardCategoriesAverageSpendingFeature />
+                </>
               : <GlobalCalendar />}
           </aside>
 
