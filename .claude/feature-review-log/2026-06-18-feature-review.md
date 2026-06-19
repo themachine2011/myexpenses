@@ -255,3 +255,253 @@ pushed to `main` (authorised by the scheduled task).
   storage shape only, and adds no new keys.
 - **Nav clutter grows by one** (Plan 12 → 13). A Plan-group savings sub-hub is
   flagged for a future run.
+
+---
+
+# Feature Review - 2026-06-18 (Run 2)
+
+Automated run of `.claude/commands/feature-review.md`.
+
+Branch: `main` (stayed on the current branch). Conflict noted: the user message
+asked for commit/push and merge to main, but the routine file's Hard limits say
+**Do not commit or push**. This run followed the routine file and did not commit
+or push.
+
+## 1. Executive summary
+
+The app now has a broad planning set: Forecast, Allowance, Goals, Trajectory,
+Safety Net, Budgets, Bills, Recurring, Debts, and Net Worth. The strongest
+remaining gap found in this run was not another savings or budget view; it was
+turning the existing user-managed debt balances into a payoff order.
+
+Applied this run:
+
+- **Debt Strategy / Debt Plan** - a new read-only Plan tab plus Dashboard preview
+  that ranks debts by avalanche vs snowball strategy, shows managed debt
+  remaining, monthly interest drag, estimated monthly payment plan, and the
+  debt-free target when all debts have payoff-month fields.
+- **Debts improvement** - the Debts tab now has a small "Plan payoff ->" cross-link
+  so debt tracking leads into the new strategy view.
+
+No tab merge or nest was applied. The existing thin/overlap candidates were
+reviewed, but another merge today would either repeat prior work or hide useful
+entry points without reducing enough clutter.
+
+## 2. What changed or looks important since the last review
+
+The most recent log was already today's first run, which shipped **Safety Net**.
+This run did not repeat Safety Net, Net-Worth Trajectory, Behaviour, or Compare
+work. It treated Safety Net as shipped context and looked for a different
+uncovered axis. The uncovered axis was debt payoff prioritization: Debts stores
+balances, rates, and payoff targets, but nothing interpreted them into an
+ordered plan.
+
+## 3. Current system overview
+
+The product is a React 18 + Vite single-page app with context-backed local state.
+`App.jsx` owns nav groups and route rendering; `pages.jsx` owns the Dashboard,
+legacy/core views, and shared UI primitives; newer review features live in dated
+feature files with small pure utilities where calculations are non-trivial.
+
+Financial source of truth remains unchanged:
+
+- transactions drive spending, income, bills, recurring detection, and savings;
+- `debtsState` stores user-managed debts separately from the locked Triumph
+  financing schedule;
+- Net Worth subtracts user-managed debt, while Triumph financing remains a
+  monthly cash-flow schedule.
+
+## 4. Dashboard review
+
+Dashboard structure remains KPI row plus hideable preview rows. The new preview
+was added to the existing money row (`Budgets / Income / Bills / Recurring`) as
+**Debt Plan**, avoiding a new Dashboard row. The preview links into its own tab
+and shows managed debt remaining plus the next payoff target when debt exists.
+
+No Dashboard panel was moved off the page in this run.
+
+## 5. All tabs review
+
+- Dashboard: functioning launcher pattern; added one preview card.
+- Health: Safety Net already made the runway sub-score actionable; no repeat
+  work.
+- Forecast / Allowance: already cover month-end cash and daily safe-to-spend.
+- Goals / Trajectory / Safety Net: cover savings target, net-worth projection,
+  and emergency cushion; no duplicate savings feature added.
+- Budgets: already includes current usage and projected month-end run-rate, so
+  a Budget Pace feature was rejected as duplicative.
+- Bills / Recurring / Subscriptions: separate manual and detected recurring
+  surfaces remain useful; no merge applied today.
+- Debts: tracks user-managed balances and manual payment progress but did not
+  answer "which debt should I attack first?" - improved with a cross-link and
+  the new strategy tab.
+- Net Worth: already includes managed debt in equity; Debt Plan links back to it.
+- Behaviour / Compare hubs: prior nests remain intact.
+- Personalized areas (Triumph and branded card visuals): still candidates for
+  future public-product generalization, untouched.
+
+## 6. UI/UX improvement opportunities
+
+Debt users now get a single next action rather than only a list of balances. The
+new tab shows both common payoff mental models:
+
+- avalanche for highest interest first;
+- snowball for smallest balance first.
+
+The Debts tab now points to the planning view. The Dashboard preview keeps the
+feature discoverable without increasing top-level Dashboard complexity.
+
+## 7. Scalability improvement opportunities
+
+The debt strategy calculation is isolated in `debtStrategyReport`, so future
+features can reuse the same ranking and totals without copying math into the UI.
+It reads existing debt fields only and adds no new localStorage key or migration.
+
+Potential future scaling: add optional user-configurable extra monthly payoff,
+but not in this run because that would introduce new state and more UX surface.
+
+## 8. Simplification opportunities
+
+No merge or nest was applied.
+
+Reviewed but not changed:
+
+- Plan group is still long; a future Plan sub-hub could group cash, savings, and
+  debt planning.
+- Subscriptions and Recurring overlap conceptually, but one is manual templates
+  and the other is detected spend. Keeping both visible avoids losing function.
+- Debt Strategy and Debts overlap by domain, but one is read-only planning and
+  one is CRUD/payment tracking. They were kept as separate tabs this run because
+  the new feature is required to live in its own tab.
+
+## 9. Existing features improved, and logic mistakes found
+
+Improved:
+
+- Debts tab gained a "Plan payoff ->" cross-link to the new Debt Plan tab.
+
+Logic/calc issues found and fixed:
+
+- During focused utility checks, zero-interest-only debt was initially labelled
+  as avalanche because the avalanche and snowball target were the same debt. The
+  util now recommends snowball when there is no interest-bearing debt.
+
+No existing stored data or storage shape was changed.
+
+## 10. Features that could move off the Dashboard
+
+None moved this run. The new feature follows the existing pattern: one Dashboard
+preview card plus a dedicated tab.
+
+## 11. Exactly 2 candidate ideas for the new feature
+
+### Candidate A - Debt Strategy / Debt Plan - APPLIED
+
+- **Feature name:** Debt Strategy / Debt Plan
+- **What it does:** ranks managed debts by payoff priority, shows avalanche and
+  snowball next targets, monthly interest drag, estimated monthly payment plan,
+  payoff queue, and debt-free target when payoff months are available.
+- **Purpose:** turns the existing Debts tracker from a balance list into an
+  actionable payoff plan.
+- **Logic:** read `debtsState`; compute remaining = principal - paidSoFar,
+  monthly interest = remaining * monthlyRate, estimated monthly payment from
+  rate + payoffMonths, avalanche order by highest rate, snowball order by
+  smallest remaining balance; use snowball when no active debt has interest.
+- **Main components:** `debtStrategyReport`, `DebtStrategyPage`,
+  `DebtStrategyPreview`.
+- **Where it should live:** Plan group, beside Debts.
+- **Dashboard preview + own tab:** confirmed both.
+- **UI/UX benefit:** gives one obvious "pay this first" answer while still
+  showing the alternative strategy.
+- **Scalability benefit:** pure utility can support future extra-payment
+  simulation without changing current storage.
+- **Complexity:** medium.
+- **Risk level:** low-medium, because rate interpretation depends on users
+  entering monthly rate as the Debts form currently labels it.
+
+### Candidate B - Income Reliability Monitor - NOT APPLIED
+
+- **Feature name:** Income Reliability Monitor
+- **What it does:** flags income volatility, late/missing expected income, and
+  dependency on top income sources.
+- **Purpose:** helps users know whether income is stable enough for planning.
+- **Logic:** reuse existing Income Insights source grouping and monthly income
+  series; compare recent income against trailing average and expected dates.
+- **Main components:** income reliability util, tab page, Dashboard preview.
+- **Where it should live:** Insights group near Income.
+- **Dashboard preview + own tab:** would need both.
+- **UI/UX benefit:** good early-warning view for irregular income.
+- **Scalability benefit:** could generalize to multiple income streams later.
+- **Complexity:** medium.
+- **Risk level:** medium, because expected income dates are not explicitly
+  stored and inference could be noisy.
+
+**Why Candidate A is stronger:** Debt data already includes the fields required
+for a useful deterministic plan. Candidate B would infer expected income timing
+from transaction history and could generate false warnings. Debt Strategy is more
+actionable with lower data risk.
+
+**How the new feature relates to existing tabs:** It expands Debts, connects back
+to Net Worth, and complements Forecast/Allowance by focusing on payoff order
+rather than current-month cash. It does not duplicate Budgets, Safety Net, Goals,
+or Trajectory.
+
+**Order applied:** pure utility -> feature tab and preview -> App nav/route
+wiring -> Dashboard preview wiring -> Debts cross-link -> validation -> log.
+
+**Not built yet:** configurable extra-payment simulation, interest-savings
+projection, annual APR/monthly rate conversion, Plan sub-hub, or Debt/Debt Plan
+tab merge.
+
+## 12. Files created / modified
+
+Created:
+
+- `src/2026-06-18-utils-debt-strategy.js`
+- `src/2026-06-18-feature-debt-strategy.jsx`
+
+Modified:
+
+- `src/App.jsx` - imported and routed Debt Plan; added Plan nav entry; updated
+  Dashboard panel label.
+- `src/pages.jsx` - imported Dashboard preview, added preview card, added Debts
+  cross-link.
+- `.claude/feature-review-log/2026-06-18-feature-review.md` - appended this run.
+
+Generated build output:
+
+- `dist/index.html`
+- `dist/assets/index-B8WAh8a6.js`
+
+Note: the worktree already had unrelated dirty files and generated `dist` churn
+before this run, including a tracked asset deletion. This run did not create,
+switch, or delete branches, and did not intentionally delete source files.
+
+## 13. Files now unused / safe to delete after review
+
+- None. No tab merge or nest was performed.
+
+## 14. Validation performed
+
+- Focused Node assertions for `debtStrategyReport`: active debt totals,
+  avalanche order, snowball order, priority selection, debt-free months,
+  monthly payment, monthly interest, zero-interest snowball behavior, and empty
+  input behavior all passed.
+- `npm run build` passed. Vite reported the existing large chunk warning.
+- Browser verification against `http://localhost:5174/` passed:
+  - Dashboard loaded with title `Aurum - Onyx & Rose Gold`.
+  - Dashboard preview contained `Debt Plan` and `Managed debt remaining`.
+  - `?view=debtStrategy` loaded the full Debt Plan route with `Debt payoff
+    priority`, `Payoff queue`, and `Manage debts`.
+  - Captured console error logs: none.
+
+## 15. Risks and unclear areas
+
+- The Debts form labels rate as `% / mo`; Debt Plan uses it as a monthly rate.
+  If a user enters annual APR, interest/payment estimates will be overstated.
+- Payment estimates are planning math only. They do not record payments or alter
+  debts.
+- Debt-free target is only shown when every active debt has a payoff-month
+  target; otherwise the page asks for payoff months rather than inventing a date.
+- Existing `dist` artifacts were already dirty before this run; build output is
+  generated and should be reviewed separately from source changes.

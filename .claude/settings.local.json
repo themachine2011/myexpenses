@@ -29,7 +29,16 @@
       "Bash(findstr /I \"node code esbuild vite chokidar\")",
       "Bash(powershell -Command \"\\(Get-Content 'src\\\\2026-05-20-component-glass-theme.jsx' | Measure-Object -Line\\).Lines\")",
       "Bash(dir src\\\\\\\\2026-05-27*.jsx)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(rm -f \"src/__tmp_test_recurring.mjs\" && echo \"cleaned\")",
+      "Bash(git -C \"C:\\\\Users\\\\laurencio.pereira\\\\OneDrive - Cyncly\\\\Área de Trabalho\\\\myexpenses\" status)",
+      "Bash(git -C \"C:\\\\Users\\\\laurencio.pereira\\\\OneDrive - Cyncly\\\\Área de Trabalho\\\\myexpenses\" branch -a -vv)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git ls-tree *)",
+      "Bash(git merge *)",
+      "Bash(awk 'NR>=900 && NR<=1050 && \\(/return \\\\{/ || /netWorthState/ || /savingsTotal/ || /debts[,:]/ || /netWorthSnapshot/ || /^    [a-zA-Z]+,/\\)' src/context.jsx)"
     ]
   }
 }

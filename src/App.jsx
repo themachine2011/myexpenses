@@ -4,7 +4,8 @@ import { AppContext, useAppState } from './context.jsx';
 import { monthBucketTotals } from './charts.jsx';
 import { ACCENT_PRESETS, FONT_PAIRS } from './tokens.jsx';
 import { formatAge } from './2026-05-18-fx-rate-service.js';
-import { AurumLoader, AurumToken3D } from './loader.jsx';
+import { AurumToken3D } from './loader.jsx';
+import { RainLoader } from './rain-loader.jsx';
 import {
   Dashboard, GraphPage, CardsPage, NetWorthPage,
   MotorcyclePage, TransactionsPage, LedgerPage, TimelinePage, DebtsPage,
@@ -63,6 +64,7 @@ import { NetWorthTrajectoryPage } from './2026-06-17-feature-networth-trajectory
 // 2026-06-18 feature review: Emergency Fund / Safety Net — months of expenses
 // the savings buffer covers + ETA to a 3/6/12-month cushion (own tab + preview).
 import { EmergencyFundPage } from './2026-06-18-feature-emergency-fund.jsx';
+import { DebtStrategyPage } from './2026-06-18-feature-debt-strategy.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -90,7 +92,7 @@ const DASHBOARD_PANELS = [
   // the tabs themselves (they stay reachable from the nav groups).
   { id: 'previewsAnalytics', label: 'Health · Trends · Merchants' },
   { id: 'previewsForward', label: 'Forecast · Goals · Patterns · Trajectory · Safety Net' },
-  { id: 'previewsMoney', label: 'Budgets · Income · Bills · Recurring' },
+  { id: 'previewsMoney', label: 'Budgets · Income · Bills · Recurring · Debt Plan' },
   { id: 'previewsDeep', label: 'Yearly · Compare · Alerts' },
   { id: 'previewsRhythm', label: 'Week · Fixed/Flex · Streaks' },
   { id: 'previewsPlanning', label: 'Calendar · What-If · Allowance' },
@@ -154,6 +156,7 @@ const NAV_GROUPS = [
       { id: 'subscriptions', label: 'Subscriptions' },
       // 2026-06-16: auto-detected recurring charges, sibling to manual Subscriptions.
       { id: 'recurringRadar', label: 'Recurring' },
+      { id: 'debtStrategy', label: 'Debt Plan' },
       { id: 'debts', label: 'Debts' },
     ],
   },
@@ -261,8 +264,8 @@ const App = () => {
   // until React's update-depth guard tripped (`Maximum update depth exceeded`).
   const handleSetGlassTheme = useCallback((v) => setTweak('theme', v), [setTweak]);
 
-  const [loaderShown, setLoaderShown] = useState(false);
-  const [loaderDone, setLoaderDone]   = useState(true);
+  const [loaderShown, setLoaderShown] = useState(true);
+  const [loaderDone, setLoaderDone]   = useState(false);
 
   const tk = state.themeTokens;
   const fonts = state.fonts;
@@ -388,6 +391,7 @@ const App = () => {
       case 'trajectory':  return <NetWorthTrajectoryPage />;
       case 'emergencyFund': return <EmergencyFundPage />;
       case 'recurringRadar': return <RecurringRadarPage />;
+      case 'debtStrategy': return <DebtStrategyPage />;
       case 'timeline':    return <TimelinePage />;
       case 'debts':       return <DebtsPage />;
       case 'allTransactions': return <AllTransactionsPage />;
@@ -414,9 +418,10 @@ const App = () => {
 
         <AnimatePresence>
           {loaderShown &&
-            <AurumLoader
+            <RainLoader
               accentHex={tk.accent}
               accentShimmer={tk.accentShimmer}
+              holdMs={7000}
               onComplete={() => { setLoaderShown(false); setTimeout(() => setLoaderDone(true), 100); }} />
           }
         </AnimatePresence>

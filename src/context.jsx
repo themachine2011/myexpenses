@@ -13,6 +13,7 @@ import {
   USELESS_CATEGORY,
 } from './2026-05-19-utils-category-colors.js';
 import { detectPendingCarryovers, buildCarryoverTx } from './2026-06-17-utils-carryover.js';
+import { isPostponedCard, cardPaymentISO, localMidnightISO } from './2026-06-19-utils-card-billing.js';
 
 export { validateTransaction, validatePatch };
 export { findDuplicate, partitionDuplicates, buildDuplicateIndex };
@@ -537,7 +538,9 @@ export const useAppState = () => {
         if (typeof t?.id !== 'string' || !t.id.startsWith('moto-')) return t;
         const i = Number(t.id.slice('moto-'.length));
         if (!Number.isFinite(i)) return t;
-        const wantStatus = i < MOTO_PAID_COUNT ? 'paid' : 'pending';
+        const wantStatus = i < MOTO_PAID_COUNT
+          ? 'paid'
+          : (t.status === 'paid' ? 'paid' : 'pending');
         if (t.status === wantStatus) return t;
         changed = true;
         return { ...t, status: wantStatus };
@@ -763,9 +766,16 @@ export const useAppState = () => {
     const groupId = generateId();
     const txType = normalizedCategory === 'Income' ? 'income' : 'expense';
     const tagList = Array.isArray(tags) ? tags.filter(Boolean) : [];
+    // Credit-card purchases (e.g. Mercado Pago) are paid on the card's due date
+    // — the 10th of the next month — so each instalment is dated to that bill,
+    // while the real purchase day is kept in `purchaseDate`.
+    const postpone = txType === 'expense' && isPostponedCard(paymentMethod);
+    const purchaseDate = postpone ? localMidnightISO(firstDate) : null;
     for (let i = 0; i < n; i++) {
-      const d = new Date(start.getFullYear(), start.getMonth() + i, start.getDate());
-      out.push({
+      const dateISO = postpone
+        ? cardPaymentISO(firstDate, paymentMethod, i)
+        : new Date(start.getFullYear(), start.getMonth() + i, start.getDate()).toISOString();
+      const row = {
         id: `${groupId}-${i}`,
         groupId,
         type: txType,
@@ -773,9 +783,11 @@ export const useAppState = () => {
         description: n > 1 ? `${description} · ${i + 1}/${n}` : description,
         category: normalizedCategory,
         paymentMethod,
-        date: d.toISOString(),
+        date: dateISO,
         tags: tagList,
-      });
+      };
+      if (purchaseDate) row.purchaseDate = purchaseDate;
+      out.push(row);
     }
     setTransactions(p => [...out, ...p].sort((a,b)=>new Date(b.date)-new Date(a.date)));
     return { ok: true };
@@ -794,18 +806,26 @@ export const useAppState = () => {
       if (!v.ok) return { ok: false, errors: v.errors };
     }
     const groupId = generateId();
-    const out = legs.map((leg, i) => ({
-      ...leg,
-      id: `${groupId}-split-${i}`,
-      groupId,
-      type: leg.type === 'income' ? 'income' : 'expense',
-      amount: Number(leg.amount) || 0,
-      description: legs.length > 1 ? `${description} · ${normalizeStoredCategory(leg.category)}` : description,
-      category: normalizeStoredCategory(leg.category),
-      paymentMethod: paymentMethod || 'Bank Transfer',
-      date: new Date(date).toISOString(),
-      tags: leg.tags || [],
-    }));
+    const effMethod = paymentMethod || 'Bank Transfer';
+    const out = legs.map((leg, i) => {
+      const legType = leg.type === 'income' ? 'income' : 'expense';
+      // Postpone expense legs on a credit card to the card's payment due date.
+      const postpone = legType === 'expense' && isPostponedCard(effMethod);
+      const row = {
+        ...leg,
+        id: `${groupId}-split-${i}`,
+        groupId,
+        type: legType,
+        amount: Number(leg.amount) || 0,
+        description: legs.length > 1 ? `${description} · ${normalizeStoredCategory(leg.category)}` : description,
+        category: normalizeStoredCategory(leg.category),
+        paymentMethod: effMethod,
+        date: postpone ? cardPaymentISO(date, effMethod) : new Date(date).toISOString(),
+        tags: leg.tags || [],
+      };
+      if (postpone) row.purchaseDate = localMidnightISO(date);
+      return row;
+    });
     setTransactions((p) => [...out, ...p].sort((a, b) => new Date(b.date) - new Date(a.date)));
     return { ok: true };
   };
@@ -830,6 +850,16 @@ export const useAppState = () => {
       return next;
     }).sort((a, b) => new Date(b.date) - new Date(a.date)));
     return { ok: true };
+  };
+
+  // Locked Triumph financing rows cannot be generally edited, but their payment
+  // status is user-actionable from the Triumph schedule.
+  const markFinancingInstallmentPaid = (id) => {
+    setTransactions((p) => p.map((t) => (
+      t.id === id && t.locked && t.category === 'Financing'
+        ? { ...t, status: 'paid' }
+        : t
+    )));
   };
 
   const deleteTransaction = (id) => setTransactions(p => p.filter(t => t.id !== id || t.locked));
@@ -1026,7 +1056,7 @@ export const useAppState = () => {
     theme, setTheme, accent, setAccent, fontPair, setFontPair, density, setDensity,
     lang, setLang, currency, setCurrency, view, setView,
     themeTokens, fonts,
-    transactions, addTransaction, addInstallmentPurchase, addSplitPurchase, editTransaction, deleteTransaction, handleClearHistory,
+    transactions, addTransaction, addInstallmentPurchase, addSplitPurchase, editTransaction, markFinancingInstallmentPaid, deleteTransaction, handleClearHistory,
     importTransactions,
     savingsTotal, addSaving, goalAmount, setGoalAmount,
     // Negative-month carryover (confirm-first)

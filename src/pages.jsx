@@ -10,7 +10,8 @@ import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from 
 import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
-import { AiImportControls } from './2026-06-03-feature-import-extractor.jsx';
+import { TransactionImportControls } from './2026-06-18-feature-transaction-import.jsx';
+import { PAYMENT_METHODS } from './payment-methods.js';
 import { CategoryProjectionCalculator } from './2026-05-18-component-category-projection-calculator.jsx';
 import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
 // 2026-06-09 feature review: Dashboard preview cards for the three new tabs.
@@ -38,6 +39,7 @@ import { WhatIfPreview } from './2026-06-14-feature-whatif.jsx';
 import { AllowancePreview } from './2026-06-15-feature-allowance.jsx';
 // 2026-06-16 feature review — Recurring Cost Radar preview.
 import { RecurringRadarPreview } from './2026-06-16-feature-recurring-radar.jsx';
+import { DebtStrategyPreview } from './2026-06-18-feature-debt-strategy.jsx';
 // 2026-06-17 feature review — Net-Worth Trajectory preview.
 import { NetWorthTrajectoryPreview } from './2026-06-17-feature-networth-trajectory.jsx';
 // 2026-06-18 feature review — Dashboard preview for Emergency Fund / Safety Net.
@@ -1749,6 +1751,9 @@ export const Dashboard = () => {
           <PanelErrorBoundary label="Recurring Radar">
             <RecurringRadarPreview />
           </PanelErrorBoundary>
+          <PanelErrorBoundary label="Debt Plan">
+            <DebtStrategyPreview />
+          </PanelErrorBoundary>
         </div>
       )}
 
@@ -2771,11 +2776,7 @@ export const NetWorthPage = () => {
   );
 };
 
-const PAYMENT_METHODS = [
-  { id: 'Debit/Cash',        label: 'Debit/Cash',  short: 'D/C',  img: null,                  type: 'debit' },
-  { id: 'VISA Mercado Pago', label: 'Mercado Pago', short: 'Visa', img: '/assets/visa.png',   type: 'visa' },
-  { id: 'Nubank MasterCard', label: 'Nubank',       short: 'Nu',   img: '/assets/nubank.png', type: 'mastercard' },
-];
+// PAYMENT_METHODS now lives in ./payment-methods.js (shared with the importer).
 
 // Branded chip colors for transaction lists (Dashboard, Ledger, History, etc.)
 const PAYMENT_CHIP = {
@@ -2803,6 +2804,17 @@ const PaymentChip = ({ method }) => {
       fontWeight: 600, lineHeight: 1.4,
     }}>{cfg.label}</span>
   );
+};
+
+// "· bought <date>" note for credit-card purchases whose payment was postponed
+// to the bill's due date (date = due date; purchaseDate = the day it was bought).
+const PurchaseNote = ({ tx }) => {
+  if (!tx || !tx.purchaseDate) return null;
+  const p = new Date(tx.purchaseDate);
+  if (isNaN(p.getTime())) return null;
+  const d = new Date(tx.date);
+  if (!isNaN(d.getTime()) && p.getFullYear() === d.getFullYear() && p.getMonth() === d.getMonth() && p.getDate() === d.getDate()) return null;
+  return <span style={{ opacity: 0.75 }}>· bought {p.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}</span>;
 };
 
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -3897,7 +3909,7 @@ export const TransactionsPage = () => {
           {portabilityBtn('Export JSON', handleExportJSON)}
           {portabilityBtn('Import CSV', () => fileInputRef.current?.click(), true)}
           {portabilityBtn('Import JSON', () => jsonInputRef.current?.click())}
-          <AiImportControls />
+          <TransactionImportControls />
           <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleImportFile} style={{ display: 'none' }} />
           <input ref={jsonInputRef} type="file" accept=".json,application/json" onChange={handleImportJSON} style={{ display: 'none' }} />
           {importStatus && (
@@ -4956,7 +4968,7 @@ export const TimelinePage = () => {
 };
 
 export const MotorcyclePage = () => {
-  const { netWorthState, setNetWorthState, themeTokens, fmt, transactions } = useAppContext();
+  const { netWorthState, setNetWorthState, themeTokens, fmt, transactions, markFinancingInstallmentPaid } = useAppContext();
   const m = netWorthState.motorcycle;
 
   const [editing, setEditing] = useState(false);
@@ -5134,7 +5146,8 @@ export const MotorcyclePage = () => {
       </Surface>
 
       <ScheduleGrid schedule={schedule} themeTokens={themeTokens} fmt={fmt}
-        nextDueId={nextDue?.id} todayStart={todayStart} />
+        nextDueId={nextDue?.id} todayStart={todayStart}
+        onMarkPaid={markFinancingInstallmentPaid} />
     </div>
   );
 };
@@ -5142,7 +5155,7 @@ export const MotorcyclePage = () => {
 // Compact grid of installment cards, scrollable when content overflows.
 // Auto-fits 4–6 columns depending on width. Highlights the next-due card and
 // shows a small down-arrow hint when more rows exist below the fold.
-const ScheduleGrid = ({ schedule, themeTokens, fmt, nextDueId, todayStart }) => {
+const ScheduleGrid = ({ schedule, themeTokens, fmt, nextDueId, todayStart, onMarkPaid }) => {
   const scrollRef = useRef(null);
   const [hasMoreBelow, setHasMoreBelow] = useState(false);
 
@@ -5239,11 +5252,36 @@ const ScheduleGrid = ({ schedule, themeTokens, fmt, nextDueId, todayStart }) => 
                 <div style={{ color: themeTokens.text, fontSize: 14, fontWeight: 500 }}>
                   {d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </div>
-                <div style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text,
-                  marginTop: 2,
-                }}>
-                  {fmt(tx.amount)}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 2 }}>
+                  <div style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 14, color: themeTokens.text,
+                  }}>
+                    {fmt(tx.amount)}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={paid}
+                    aria-label={paid ? `Installment ${idx} is paid` : `Mark installment ${idx} as paid`}
+                    onClick={() => { if (!paid) onMarkPaid?.(tx.id); }}
+                    style={{
+                      border: `1px solid ${themeTokens.positive || themeTokens.accent}`,
+                      background: paid ? `${themeTokens.positive || themeTokens.accent}24` : (themeTokens.positive || themeTokens.accent),
+                      color: paid ? (themeTokens.positive || themeTokens.accent) : (themeTokens.isDark ? '#0B0B0D' : '#FFFFFF'),
+                      borderRadius: 999,
+                      padding: '4px 10px',
+                      minWidth: 54,
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 9,
+                      lineHeight: 1,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      cursor: paid ? 'default' : 'pointer',
+                      opacity: paid ? 0.78 : 1,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {paid ? 'Paid' : 'Pay'}
+                  </button>
                 </div>
               </div>
             );
@@ -5347,6 +5385,13 @@ export const DebtsPage = () => {
               {fmt(totals.totalPaid)} paid · {fmt(totals.totalPrincipal)} principal
             </div>
           </div>
+          <button onClick={() => setView('debtStrategy')}
+            style={{
+              padding: '6px 12px', borderRadius: 999,
+              border: `1px solid ${themeTokens.hairline2}`, background: 'transparent', color: themeTokens.textDim,
+              fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}>Plan payoff -&gt;</button>
           <div style={{ marginLeft: 'auto', maxWidth: 360, textAlign: 'right' }}>
             <div style={{ color: themeTokens.textDim, fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
               Triumph financing

@@ -1,0 +1,292 @@
+diff --git a/src/2026-05-28-component-financial-statements.jsx b/src/2026-05-28-component-financial-statements.jsx
+index e53237a..2a8f41c 100644
+--- a/src/2026-05-28-component-financial-statements.jsx
++++ b/src/2026-05-28-component-financial-statements.jsx
+@@ -80,50 +80,82 @@ const DeltaChip = ({ pct, tk }) => {
+   );
+ };
+ 
+-const StatementTile = ({ title, rows, total, totalLabel, totalColor, delta, tk }) => (
+-  <div style={{
+-    background: tk.surface2 || tk.surface,
+-    border: `1px solid ${tk.hairline}`,
+-    borderRadius: 14, padding: 18,
+-    display: 'flex', flexDirection: 'column', gap: 12,
+-    minWidth: 0,
+-  }}>
++const StatementTile = ({ title, rows, total, totalLabel, totalColor, delta, tk, onToggleBlur, blurred }) => {
++  // The big total number is the clickable privacy toggle when onToggleBlur is
++  // provided. Visually it stays a normal number — the button is a transparent
++  // wrapper. Keyboard-accessible via native button semantics.
++  const totalSpan = (
++    <span style={{
++      fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22,
++      color: totalColor || tk.text, letterSpacing: '-0.01em',
++    }} aria-hidden={blurred ? true : undefined}>{total}</span>
++  );
++
++  const totalNode = onToggleBlur ? (
++    <button
++      type="button"
++      onClick={onToggleBlur}
++      aria-pressed={!!blurred}
++      aria-label={blurred ? 'Show financial values' : 'Hide financial values'}
++      title={blurred ? 'Show financial values' : 'Hide financial values'}
++      style={{
++        background: 'transparent', border: 'none',
++        padding: '2px 6px', margin: '-2px -6px',
++        borderRadius: 8,
++        cursor: 'pointer',
++        color: 'inherit', font: 'inherit',
++        transition: 'background 200ms ease',
++      }}
++      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(125, 170, 225, 0.10)'; }}
++      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
++      onFocus={(e)      => { e.currentTarget.style.background = 'rgba(125, 170, 225, 0.12)'; }}
++      onBlur={(e)       => { e.currentTarget.style.background = 'transparent'; }}>
++      {totalSpan}
++    </button>
++  ) : totalSpan;
++
++  return (
+     <div style={{
+-      fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.32em',
+-      textTransform: 'uppercase', color: tk.textDim,
+-    }}>{title}</div>
++      background: tk.surface2 || tk.surface,
++      border: `1px solid ${tk.hairline}`,
++      borderRadius: 14, padding: 18,
++      display: 'flex', flexDirection: 'column', gap: 12,
++      minWidth: 0,
++    }}>
++      <div style={{
++        fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.32em',
++        textTransform: 'uppercase', color: tk.textDim,
++      }}>{title}</div>
+ 
+-    <div style={{ display: 'grid', gap: 6 }}>
+-      {rows.map((r, i) => (
+-        <div key={i} style={{
++      <div style={{ display: 'grid', gap: 6 }}>
++        {rows.map((r, i) => (
++          <div key={i} style={{
++            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12,
++          }}>
++            <span style={{ color: tk.textDim, fontSize: 12 }}>{r.label}</span>
++            <span style={{
++              color: r.color || tk.text,
++              fontFamily: 'var(--font-mono)', fontSize: 13,
++            }}>{r.value}</span>
++          </div>
++        ))}
++      </div>
++
++      <div style={{ borderTop: `1px solid ${tk.hairline}`, paddingTop: 10, display: 'grid', gap: 4 }}>
++        <div style={{
+           display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12,
+         }}>
+-          <span style={{ color: tk.textDim, fontSize: 12 }}>{r.label}</span>
+           <span style={{
+-            color: r.color || tk.text,
+-            fontFamily: 'var(--font-mono)', fontSize: 13,
+-          }}>{r.value}</span>
++            fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em',
++            textTransform: 'uppercase', color: tk.textDim,
++          }}>{totalLabel}</span>
++          {totalNode}
+         </div>
+-      ))}
+-    </div>
+-
+-    <div style={{ borderTop: `1px solid ${tk.hairline}`, paddingTop: 10, display: 'grid', gap: 4 }}>
+-      <div style={{
+-        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12,
+-      }}>
+-        <span style={{
+-          fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em',
+-          textTransform: 'uppercase', color: tk.textDim,
+-        }}>{totalLabel}</span>
+-        <span style={{
+-          fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22,
+-          color: totalColor || tk.text, letterSpacing: '-0.01em',
+-        }}>{total}</span>
++        <div style={{ textAlign: 'right' }}><DeltaChip pct={delta} tk={tk} /></div>
+       </div>
+-      <div style={{ textAlign: 'right' }}><DeltaChip pct={delta} tk={tk} /></div>
+     </div>
+-  </div>
+-);
++  );
++};
+ 
+ const FormalSection = ({ title, lines, total, totalLabel, totalColor, tk }) => (
+   <div style={{ display: 'grid', gap: 8 }}>
+@@ -166,7 +198,7 @@ const FormalSection = ({ title, lines, total, totalLabel, totalColor, tk }) => (
+   </div>
+ );
+ 
+-export const DashboardFinancialStatements = () => {
++export const DashboardFinancialStatements = ({ blurred, onToggleBlur }) => {
+   const {
+     transactions, themeTokens: tk, fmt,
+     savingsTotal, netWorthState, debtTotals,
+@@ -240,6 +272,18 @@ export const DashboardFinancialStatements = () => {
+         </button>
+       </div>
+ 
++      {/* Privacy mask wrapper. Frosted-glass blur over all sensitive numbers
++          when `blurred` is true. Header eyebrow + "Formal view" toggle stay
++          sharp so the panel remains operable. Buttons inside (the tile totals)
++          stay clickable so the user can un-blur from here. */}
++      <div style={{
++        filter:     blurred ? 'blur(12px)' : 'blur(0px)',
++        opacity:    blurred ? 0.78 : 1,
++        userSelect: blurred ? 'none' : 'auto',
++        transition: 'filter 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease',
++        willChange: 'filter, opacity',
++        display: 'grid', gap: 18,
++      }}>
+       <div style={{
+         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14,
+       }}>
+@@ -254,6 +298,8 @@ export const DashboardFinancialStatements = () => {
+           totalColor={cur.net >= 0 ? tk.positive : tk.negative}
+           delta={dCash}
+           tk={tk}
++          onToggleBlur={onToggleBlur}
++          blurred={blurred}
+         />
+         <StatementTile
+           title="What You Have"
+@@ -266,6 +312,8 @@ export const DashboardFinancialStatements = () => {
+           totalColor={netWorth >= 0 ? tk.positive : tk.negative}
+           delta={null}
+           tk={tk}
++          onToggleBlur={onToggleBlur}
++          blurred={blurred}
+         />
+         <StatementTile
+           title="Money Movement"
+@@ -278,6 +326,8 @@ export const DashboardFinancialStatements = () => {
+           totalColor={(cur.income - cur.totalExpense) >= 0 ? tk.positive : tk.negative}
+           delta={dFlow}
+           tk={tk}
++          onToggleBlur={onToggleBlur}
++          blurred={blurred}
+         />
+       </div>
+ 
+@@ -343,6 +393,7 @@ export const DashboardFinancialStatements = () => {
+           </motion.div>
+         )}
+       </AnimatePresence>
++      </div>
+     </motion.div>
+   );
+ };
+diff --git a/src/pages.jsx b/src/pages.jsx
+index 177cb29..0ea08a8 100644
+--- a/src/pages.jsx
++++ b/src/pages.jsx
+@@ -655,12 +655,23 @@ export const LuxurySedanGoal = () => {
+   );
+ };
+ 
+-export const KPICard = ({ label, value, delta, positive, valueColor, yoy }) => {
++export const KPICard = ({ label, value, delta, positive, valueColor, yoy, onToggleBlur, blurred }) => {
+   const { themeTokens } = useAppContext();
+   const positive_ = positive ?? delta >= 0;
+-  return (
+-    <Surface>
+-      <Eyebrow>{label}</Eyebrow>
++
++  // Visual privacy mask: frosted-glass blur over value + delta + YoY block.
++  // Pure visual — no data, calculations, or formatting are changed. Layout
++  // is preserved because CSS `filter` doesn't reflow.
++  const valueBlock = (
++    <div
++      aria-hidden={blurred ? true : undefined}
++      style={{
++        filter:     blurred ? 'blur(12px)' : 'blur(0px)',
++        opacity:    blurred ? 0.78 : 1,
++        userSelect: blurred ? 'none' : 'auto',
++        transition: 'filter 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease',
++        willChange: 'filter, opacity',
++      }}>
+       <Display size={32} color={valueColor}>{value}</Display>
+       {delta !== undefined &&
+         <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12,
+@@ -677,6 +688,35 @@ export const KPICard = ({ label, value, delta, positive, valueColor, yoy }) => {
+             : <span style={{ color: themeTokens.textFaint }}>— YoY (no prior data)</span>}
+         </div>
+       )}
++    </div>
++  );
++
++  return (
++    <Surface>
++      <Eyebrow>{label}</Eyebrow>
++      {onToggleBlur ? (
++        <button
++          type="button"
++          onClick={onToggleBlur}
++          aria-pressed={!!blurred}
++          aria-label={blurred ? 'Show financial values' : 'Hide financial values'}
++          title={blurred ? 'Show financial values' : 'Hide financial values'}
++          style={{
++            display: 'block', width: '100%',
++            textAlign: 'left', padding: '4px 6px', margin: '-4px -6px',
++            background: 'transparent',
++            border: 'none', borderRadius: 10,
++            color: 'inherit', font: 'inherit',
++            cursor: 'pointer',
++            transition: 'background 200ms ease',
++          }}
++          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(125, 170, 225, 0.08)'; }}
++          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
++          onFocus={(e)      => { e.currentTarget.style.background = 'rgba(125, 170, 225, 0.10)'; }}
++          onBlur={(e)       => { e.currentTarget.style.background = 'transparent'; }}>
++          {valueBlock}
++        </button>
++      ) : valueBlock}
+     </Surface>
+   );
+ };
+@@ -1536,6 +1576,10 @@ const SavingsPanel = () => {
+ export const Dashboard = () => {
+   const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor } = useAppContext();
+   const [timeRange, setTimeRange] = useState(6);
++  // Visual-only privacy toggle for the Liquid Income + Cash Flow KPI tiles.
++  // Frosted-glass blur over their values; no data is changed. Toggled by
++  // clicking directly on the Liquid Income value (see KPICard `onToggleBlur`).
++  const [privacy, setPrivacy] = useState(false);
+   const series = useMemo(() => buildMonthlySeries(transactions, 1, timeRange - 2), [transactions, timeRange]);
+   const dashboardCategoryTransactions = useMemo(
+     () => transactions.filter((t) => t.category !== 'Financing'),
+@@ -1581,10 +1625,13 @@ export const Dashboard = () => {
+       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+         <KPICard label="Liquid Income" value={fmt(currentMonth.income)} delta={incomeDelta}
+           valueColor={currentMonth.income >= 0 ? themeTokens.positive : themeTokens.negative}
+-          yoy={yoyInc} />
++          yoy={yoyInc}
++          onToggleBlur={() => setPrivacy((v) => !v)}
++          blurred={privacy} />
+         <KPICard label="Cash Flow" value={fmt(currentMonth.cashflow)} delta={cashflowDelta}
+           valueColor={currentMonth.cashflow >= 0 ? themeTokens.positive : themeTokens.negative}
+-          yoy={yoyCash} />
++          yoy={yoyCash}
++          blurred={privacy} />
+         <KPICard label="Savings Rate" value={`${savingsRate.toFixed(1)}%`} positive={savingsRate >= 20} delta={savingsRate}
+           valueColor={themeTokens.positive} />
+         <KPICard label="Fixed Expenses" value={fmt(currentMonth.fixed)} positive={false}
+@@ -1593,7 +1640,9 @@ export const Dashboard = () => {
+       </div>
+ 
+       <PanelErrorBoundary label="Financial Statements">
+-        <DashboardFinancialStatements />
++        <DashboardFinancialStatements
++          blurred={privacy}
++          onToggleBlur={() => setPrivacy((v) => !v)} />
+       </PanelErrorBoundary>
+ 
+       <PanelErrorBoundary label="Monthly Insights">
