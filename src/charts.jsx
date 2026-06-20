@@ -434,10 +434,52 @@ export const RetentionBar = ({ data, accent, soft, hairline }) => {
   );
 };
 
+// ── Fixed vs Variable classification ─────────────────────────────────────────
+// A purchase is "Fixed" when the user is committed to it for 6+ months — not
+// because of what it's called. A row qualifies two ways:
+//   1. It's already locked — financing instalments, subscriptions and recurring
+//      fires are stored with locked:true.
+//   2. It belongs to a multi-payment group (instalments / scheduled payments
+//      that share a hidden groupId) whose plan runs 6 monthly payments — or a
+//      6-month span — or longer.
+// Anything shorter (a one-off, or a 3x instalment) stays Variable. Split-purchase
+// legs also share a groupId but all fall on ONE date, so they collapse to a
+// single month and never trip the 6-month test.
+export const FIXED_MONTHS_THRESHOLD = 6;
+
+// From the FULL transaction list, the set of groupIds whose payment plan lasts
+// FIXED_MONTHS_THRESHOLD months or longer. Always pass the whole list — a plan
+// can span months the caller is about to filter out.
+export const fixedDurationGroupIds = (transactions, threshold = FIXED_MONTHS_THRESHOLD) => {
+  const monthsByGroup = new Map(); // groupId -> Set<year*12 + month>
+  for (const tx of transactions || []) {
+    if (!tx || tx.type === 'income' || !tx.groupId) continue;
+    const d = new Date(tx.date);
+    if (Number.isNaN(d.getTime())) continue;
+    const idx = d.getFullYear() * 12 + d.getMonth();
+    let months = monthsByGroup.get(tx.groupId);
+    if (!months) { months = new Set(); monthsByGroup.set(tx.groupId, months); }
+    months.add(idx);
+  }
+  const fixed = new Set();
+  for (const [groupId, months] of monthsByGroup) {
+    const idxs = [...months];
+    const span = idxs.length ? Math.max(...idxs) - Math.min(...idxs) + 1 : 0;
+    // 6+ distinct payment months, OR a 6-month-or-longer span (handles gaps).
+    if (months.size >= threshold || span >= threshold) fixed.add(groupId);
+  }
+  return fixed;
+};
+
+// Single source of truth shared by every chart and KPI: is this expense Fixed?
+export const isFixedExpense = (tx, fixedGroupIds) =>
+  !!(tx && (tx.locked || (tx.groupId && fixedGroupIds && fixedGroupIds.has(tx.groupId))));
+
 // Calendar-year series: 12 entries Jan–Dec for the given year. Used by the
 // Graphs page so the default window is always Jan 1 → Dec 31 of one year.
 export const buildYearSeries = (transactions, year) => {
   const out = [];
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
   for (let m = 0; m < 12; m++) {
     const base = new Date(year, m, 1);
     let income = 0, fixed = 0, variable = 0;
@@ -445,7 +487,7 @@ export const buildYearSeries = (transactions, year) => {
       const d = new Date(tx.date);
       if (d.getFullYear() !== year || d.getMonth() !== m) continue;
       if (tx.type === 'income') income += tx.amount;
-      else if (tx.locked) fixed += tx.amount;
+      else if (isFixedExpense(tx, fixedGroupIds)) fixed += tx.amount;
       else variable += tx.amount;
     }
     const cashflow = income - fixed - variable;
@@ -463,6 +505,7 @@ export const buildYearSeries = (transactions, year) => {
 export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward = 0) => {
   const now = new Date();
   const out = [];
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
   for (let m = -monthsBack; m <= monthsForward; m++) {
     const base = new Date(now.getFullYear(), now.getMonth() + m, 1);
     const ym = base.getFullYear() + '-' + base.getMonth();
@@ -472,7 +515,7 @@ export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward =
       const k = d.getFullYear() + '-' + d.getMonth();
       if (k !== ym) continue;
       if (tx.type === 'income') income += tx.amount;
-      else if (tx.locked) fixed += tx.amount;
+      else if (isFixedExpense(tx, fixedGroupIds)) fixed += tx.amount;
       else variable += tx.amount;
     }
     const cashflow = income - fixed - variable;
@@ -497,6 +540,7 @@ export const buildMonthlySeries = (transactions, monthsBack = 5, monthsForward =
 // series intentionally still spans future months).
 export const monthBucketTotals = (transactions, year, month, dayCap = null) => {
   let income = 0, fixed = 0, variable = 0, fixedFull = 0;
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
   for (const tx of transactions || []) {
     const d = new Date(tx.date);
     if (d.getFullYear() !== year || d.getMonth() !== month) continue;
@@ -504,12 +548,13 @@ export const monthBucketTotals = (transactions, year, month, dayCap = null) => {
     if (tx.type === 'income') {
       if (capped) continue;
       income += tx.amount;
-    } else if (tx.locked) {
+    } else if (isFixedExpense(tx, fixedGroupIds)) {
       // `fixedFull` is the WHOLE-month fixed commitment (financing instalment,
-      // subscriptions, debts) — it ignores the day cap so a charge due later
-      // this month (e.g. the Triumph instalment on the 18th) still shows as a
-      // known fixed cost. `fixed` stays month-to-date so cash flow / savings
-      // rate keep counting only money already moved.
+      // subscriptions, debts, and 6+ month instalment plans) — it ignores the
+      // day cap so a charge due later this month (e.g. the Triumph instalment
+      // on the 18th) still shows as a known fixed cost. `fixed` stays
+      // month-to-date so cash flow / savings rate keep counting only money
+      // already moved.
       fixedFull += tx.amount;
       if (!capped) fixed += tx.amount;
     } else {
@@ -528,12 +573,13 @@ export const monthBucketTotals = (transactions, year, month, dayCap = null) => {
 // drift apart.
 export const monthBucketRows = (transactions, year, month, dayCap = null) => {
   const income = [], fixed = [], variable = [];
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
   for (const tx of transactions || []) {
     const d = new Date(tx.date);
     if (d.getFullYear() !== year || d.getMonth() !== month) continue;
     const capped = dayCap != null && d.getDate() > dayCap;
     if (tx.type === 'income') { if (!capped) income.push(tx); }
-    else if (tx.locked)      { if (!capped) fixed.push(tx); }
+    else if (isFixedExpense(tx, fixedGroupIds)) { if (!capped) fixed.push(tx); }
     else                     { if (!capped) variable.push(tx); }
   }
   return { income, fixed, variable };
