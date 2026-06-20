@@ -66,6 +66,11 @@ import { NetWorthTrajectoryPage } from './2026-06-17-feature-networth-trajectory
 // the savings buffer covers + ETA to a 3/6/12-month cushion (own tab + preview).
 import { EmergencyFundPage } from './2026-06-18-feature-emergency-fund.jsx';
 import { DebtStrategyPage } from './2026-06-18-feature-debt-strategy.jsx';
+// 2026-06-20 feature review: "Savings" hub nests Goals + Trajectory + Safety Net
+// (trims the Plan group 14 → 12); "Money Flow" is the new feature — an income
+// allocation view (own tab in Insights + a Dashboard sidebar preview).
+import { SavingsHubPage } from './2026-06-20-feature-savings-hub.jsx';
+import { MoneyFlowPage, MoneyFlowPreview } from './2026-06-20-feature-money-flow.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'onyx',
@@ -134,6 +139,8 @@ const NAV_GROUPS = [
       // (sub-tabs Months / Year). The standalone `yearly`/`compare` routes stay
       // registered so the Dashboard preview cards still deep-link to each one.
       { id: 'compareHub', label: 'Compare' },
+      // 2026-06-20: income allocation — "where the money went" this month.
+      { id: 'moneyFlow', label: 'Money Flow' },
       { id: 'alerts', label: 'Alerts' },
       { id: 'timeline', label: 'Timeline' },
     ],
@@ -144,11 +151,12 @@ const NAV_GROUPS = [
     items: [
       { id: 'forecast', label: 'Forecast' },
       { id: 'allowance', label: 'Allowance' },
-      { id: 'goals', label: 'Goals' },
-      // 2026-06-17: forward net-worth projection, sits with the savings cluster.
-      { id: 'trajectory', label: 'Trajectory' },
-      // 2026-06-18: emergency-fund runway, sits with the savings cluster.
-      { id: 'emergencyFund', label: 'Safety Net' },
+      // 2026-06-20 nest: Goals + Trajectory + Safety Net now live under one
+      // "Savings" hub (sub-tabs Goals / Trajectory / Safety Net), trimming this
+      // group 14 → 12. The standalone `goals` / `trajectory` / `emergencyFund`
+      // routes stay registered below so the Dashboard preview cards still
+      // deep-link straight to each focused view.
+      { id: 'savingsHub', label: 'Savings' },
       { id: 'budgets', label: 'Budgets' },
       { id: 'fixedflex', label: 'Fixed/Flex' },
       { id: 'whatif', label: 'What-If' },
@@ -401,6 +409,8 @@ const App = () => {
       case 'allowance':   return <AllowancePage />;
       case 'trajectory':  return <NetWorthTrajectoryPage />;
       case 'emergencyFund': return <EmergencyFundPage />;
+      case 'savingsHub':  return <SavingsHubPage />;
+      case 'moneyFlow':   return <MoneyFlowPage />;
       case 'recurringRadar': return <RecurringRadarPage />;
       case 'debtStrategy': return <DebtStrategyPage />;
       case 'timeline':    return <TimelinePage />;
@@ -585,6 +595,11 @@ const App = () => {
                     )}
                   </AnimatePresence>
                   <DashboardCategoriesAverageSpendingFeature />
+                  {/* 2026-06-20: Money Flow preview lives in the sidebar (not a
+                      main-column preview row) so this run stays clear of the
+                      foreign in-progress work in pages.jsx. Still on the
+                      Dashboard, still deep-links into the Money Flow tab. */}
+                  <MoneyFlowPreview />
                 </>
               : <GlobalCalendar />}
           </aside>
