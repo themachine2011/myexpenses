@@ -36,6 +36,22 @@ export const localMidnightISO = (value) => {
   return d ? d.toISOString() : null;
 };
 
+export const splitInstallmentAmounts = (total, installments) => {
+  const count = Math.max(1, Math.min(12, Number(installments) || 1));
+  const totalCents = Math.round((Number(total) || 0) * 100);
+  const baseCents = Math.floor(totalCents / count);
+  const remainder = totalCents - (baseCents * count);
+  return Array.from({ length: count }, (_, index) =>
+    (baseCents + (index === count - 1 ? remainder : 0)) / 100);
+};
+
+export const monthlyPaymentISO = (purchaseDate, monthOffset = 0, dueDay = 10) => {
+  const base = toLocalDate(purchaseDate);
+  if (!base) return null;
+  const day = Math.max(1, Math.min(28, Number(dueDay) || 10));
+  return new Date(base.getFullYear(), base.getMonth() + 1 + monthOffset, day).toISOString();
+};
+
 /**
  * Payment due date (local-midnight ISO) for a card purchase.
  * Due = the card's due day in (purchaseMonth + 1 + monthOffset). `monthOffset`
@@ -44,12 +60,7 @@ export const localMidnightISO = (value) => {
  */
 export const cardPaymentISO = (purchaseDate, method, monthOffset = 0) => {
   if (!isPostponedCard(method)) return null;
-  const base = toLocalDate(purchaseDate);
-  if (!base) return null;
-  const day = CARD_DUE_DAY[method];
-  // new Date normalises month overflow and year rollover automatically.
-  const due = new Date(base.getFullYear(), base.getMonth() + 1 + monthOffset, day);
-  return due.toISOString();
+  return monthlyPaymentISO(purchaseDate, monthOffset, CARD_DUE_DAY[method]);
 };
 
 export default cardPaymentISO;

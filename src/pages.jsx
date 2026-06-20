@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
-import { resolveRange, REQUIRED_CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
+import { resolveRange, REQUIRED_CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, getPurchaseCycleRange, isPurchaseInCycle, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
 import { fmtCurrency } from './tokens.jsx';
 import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries, monthBucketTotals, monthBucketRows } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
@@ -1607,6 +1607,7 @@ const SavingsPanel = () => {
 export const Dashboard = () => {
   const { transactions, themeTokens, fmt, savingsTotal, goalAmount, setView, yoyDelta, getCategoryColor, privacyHidden, togglePrivacy, dashboardLayout } = useAppContext();
   const [timeRange, setTimeRange] = useState(6);
+  const [recentActivityFilter, setRecentActivityFilter] = useState('recent');
   const series = useMemo(() => buildMonthlySeries(transactions, 1, timeRange - 2), [transactions, timeRange]);
   const dashboardCategoryTransactions = useMemo(
     () => transactions.filter((t) => t.category !== 'Financing'),
@@ -1620,6 +1621,18 @@ export const Dashboard = () => {
   // future months). "vs last month" compares the same elapsed window — month so
   // far vs last month through the same day — so the delta stays fair.
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth();
+  const currentPurchaseCycle = useMemo(
+    () => getPurchaseCycleRange(currentYear, currentMonthIndex),
+    [currentYear, currentMonthIndex]
+  );
+  const recentPurchases = useMemo(() => transactions
+    .filter((transaction) => transaction.category !== 'Financing' && transaction.type === 'expense')
+    .filter((transaction) => recentActivityFilter !== 'cycle' || isPurchaseInCycle(transaction, currentPurchaseCycle))
+    .slice()
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 7), [transactions, recentActivityFilter, currentPurchaseCycle]);
   const dayCap = now.getDate();
   const prevBase = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const currentMonth = useMemo(
@@ -1858,6 +1871,23 @@ export const Dashboard = () => {
       <Surface>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Eyebrow>Recent Activity</Eyebrow>
+          <button
+            type="button"
+            aria-pressed={recentActivityFilter === 'cycle'}
+            onClick={() => setRecentActivityFilter((current) => current === 'cycle' ? 'recent' : 'cycle')}
+            title={`${currentPurchaseCycle.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to ${currentPurchaseCycle.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+            style={{
+              marginLeft: 'auto', marginRight: 12,
+              padding: '6px 12px', borderRadius: 999,
+              border: `1px solid ${recentActivityFilter === 'cycle' ? themeTokens.accent : themeTokens.hairline2}`,
+              background: recentActivityFilter === 'cycle' ? themeTokens.accent : 'transparent',
+              color: recentActivityFilter === 'cycle' ? '#0B0B0D' : themeTokens.textDim,
+              fontFamily: 'var(--font-mono)', fontSize: 10,
+              letterSpacing: '0.16em', textTransform: 'uppercase',
+              cursor: 'pointer', transition: 'all 200ms',
+            }}>
+            Current cycle
+          </button>
           <button onClick={() => setView('allTransactions')}
             style={{
               background: 'transparent', border: 'none', padding: 0,
@@ -1871,12 +1901,7 @@ export const Dashboard = () => {
           </button>
         </div>
         <div>
-          {transactions
-            .filter((t) => t.category !== 'Financing')
-            .slice()
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .slice(0, 7)
-            .map((tx, i) =>
+          {recentPurchases.map((tx, i) =>
             <motion.div key={tx.id}
               initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04 }}
@@ -3004,11 +3029,17 @@ const RANGE_PRESETS = [
   { id: 'p365', label: '12M',  filter: { kind: 'preset', days: 365 } },
 ];
 
-export const RangeFilter = () => {
+const PURCHASE_CYCLE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export const RangeFilter = ({ inactive = false, onFilterChange }) => {
   const { dateFilter, setDateFilter, themeTokens } = useAppContext();
   const isCustom = dateFilter?.kind === 'custom';
+  const applyFilter = (nextFilter) => {
+    setDateFilter(nextFilter);
+    onFilterChange?.(nextFilter);
+  };
   const matchPreset = (preset) =>
-    !isCustom && dateFilter?.kind === 'preset' && Number(dateFilter.days) === preset.filter.days;
+    !inactive && !isCustom && dateFilter?.kind === 'preset' && Number(dateFilter.days) === preset.filter.days;
 
   const chipStyle = (active) => ({
     padding: '6px 12px',
@@ -3035,23 +3066,23 @@ export const RangeFilter = () => {
     <div style={{ display: 'grid', gap: 10 }}>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {RANGE_PRESETS.map((p) => (
-          <button key={p.id} onClick={() => setDateFilter(p.filter)} style={chipStyle(matchPreset(p))}>
+          <button key={p.id} onClick={() => applyFilter(p.filter)} style={chipStyle(matchPreset(p))}>
             {p.label}
           </button>
         ))}
         <button
-          onClick={() => setDateFilter({ kind: 'custom', from: '', to: '' })}
-          style={chipStyle(isCustom)}>
+          onClick={() => applyFilter({ kind: 'custom', from: '', to: '' })}
+          style={chipStyle(!inactive && isCustom)}>
           Custom
         </button>
       </div>
-      {isCustom && (
+      {!inactive && isCustom && (
         <div style={{ display: 'flex', gap: 8 }}>
           <input type="date" value={dateFilter.from || ''}
-            onChange={(e) => setDateFilter({ ...dateFilter, from: e.target.value })}
+            onChange={(e) => applyFilter({ ...dateFilter, from: e.target.value })}
             style={inputStyle} />
           <input type="date" value={dateFilter.to || ''}
-            onChange={(e) => setDateFilter({ ...dateFilter, to: e.target.value })}
+            onChange={(e) => applyFilter({ ...dateFilter, to: e.target.value })}
             style={inputStyle} />
         </div>
       )}
@@ -3275,9 +3306,15 @@ export const LedgerPage = () => {
   const [amountMin, setAmountMin]   = useState('');
   const [amountMax, setAmountMax]   = useState('');
   const [tagFilter, setTagFilter]   = useState([]); // array of selected tags
+  const [purchaseCycleMonth, setPurchaseCycleMonth] = useState(null);
   const localQ = searchQuery;
   const setLocalQ = setSearchQuery;
   const listRef = useRef(null);
+  const purchaseCycleYear = new Date().getFullYear();
+  const purchaseCycleRange = useMemo(
+    () => purchaseCycleMonth == null ? null : getPurchaseCycleRange(purchaseCycleYear, purchaseCycleMonth),
+    [purchaseCycleMonth, purchaseCycleYear]
+  );
 
   // Collect all tags currently present in non-financing transactions.
   const allTags = useMemo(() => {
@@ -3290,7 +3327,7 @@ export const LedgerPage = () => {
   }, [transactions]);
 
   const filtered = useMemo(() => {
-    const { from, to } = resolveRange(dateFilter);
+    const { from, to } = purchaseCycleRange || resolveRange(dateFilter);
     const s = (localQ || '').trim().toLowerCase();
     const min = amountMin === '' ? null : Number(amountMin);
     const max = amountMax === '' ? null : Number(amountMax);
@@ -3298,8 +3335,12 @@ export const LedgerPage = () => {
       if (t.category === 'Financing') return false;
       if (cardFilter !== 'all' && t.paymentMethod !== cardFilter) return false;
       const d = new Date(t.date);
-      if (from && d < from) return false;
-      if (to && d > to) return false;
+      if (purchaseCycleRange) {
+        if (!isPurchaseInCycle(t, purchaseCycleRange)) return false;
+      } else {
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+      }
       if (min != null && t.amount < min) return false;
       if (max != null && t.amount > max) return false;
       if (tagFilter.length) {
@@ -3315,7 +3356,7 @@ export const LedgerPage = () => {
         String(t.amount).includes(s)
       );
     });
-  }, [transactions, cardFilter, localQ, dateFilter, amountMin, amountMax, tagFilter]);
+  }, [transactions, cardFilter, localQ, dateFilter, amountMin, amountMax, tagFilter, purchaseCycleRange]);
 
   useEffect(() => {
     if (!focusTxId) return;
@@ -3380,7 +3421,43 @@ export const LedgerPage = () => {
             })}
           </div>
           <div style={{ flex: 1 }} />
-          <RangeFilter />
+          <RangeFilter
+            inactive={purchaseCycleMonth != null}
+            onFilterChange={() => setPurchaseCycleMonth(null)}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${themeTokens.hairline}` }}>
+          <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginRight: 6 }}>
+            Purchase cycle · {purchaseCycleYear}
+          </span>
+          {PURCHASE_CYCLE_MONTHS.map((month, monthIndex) => {
+            const active = purchaseCycleMonth === monthIndex;
+            return (
+              <button
+                key={month}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setPurchaseCycleMonth((current) => current === monthIndex ? null : monthIndex)}
+                style={{
+                  padding: '6px 10px', borderRadius: 999,
+                  border: `1px solid ${active ? themeTokens.accent : themeTokens.hairline2}`,
+                  background: active ? themeTokens.accent : 'transparent',
+                  color: active ? '#0B0B0D' : themeTokens.textDim,
+                  fontFamily: 'var(--font-mono)', fontSize: 10,
+                  letterSpacing: '0.14em', textTransform: 'uppercase',
+                  cursor: 'pointer', transition: 'all 200ms',
+                }}>
+                {month}
+              </button>
+            );
+          })}
+          {purchaseCycleRange && (
+            <span style={{ marginLeft: 'auto', color: themeTokens.accent, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              {purchaseCycleRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {' → '}
+              {purchaseCycleRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${themeTokens.hairline}` }}>
           <span style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Amount</span>
@@ -4737,7 +4814,7 @@ const TrashBtn = ({ onClick, locked }) => (
 
 // "2/5" if the description carries an instalment suffix like "Foo · 2/5".
 const instalmentOf = (desc) => {
-  const m = /·\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(desc || '');
+  const m = /(?:\u00b7|\u00c2\u00b7|-)\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(desc || '');
   return m ? `${m[1]}/${m[2]}` : null;
 };
 

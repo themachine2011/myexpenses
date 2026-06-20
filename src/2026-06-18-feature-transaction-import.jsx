@@ -19,7 +19,7 @@ import { PAYMENT_METHODS } from './payment-methods.js';
 import {
   extractTransactionsLocal, LocalExtractError, ACCEPTED_EXTENSIONS,
 } from './2026-06-18-utils-local-extract.js';
-import { isPostponedCard, cardPaymentISO, localMidnightISO } from './2026-06-19-utils-card-billing.js';
+import { isPostponedCard, cardPaymentISO, localMidnightISO, monthlyPaymentISO, splitInstallmentAmounts } from './2026-06-19-utils-card-billing.js';
 
 const LOW_CONFIDENCE = 0.6;
 const IMPORT_OVERLAY_Z = 10000;
@@ -65,6 +65,41 @@ const effectiveDates = (purchaseYMD, method, type) => {
   return { date: ymdToISO(ymd), purchaseDate: null };
 };
 
+const isoToLocalYMD = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const buildInstallmentDrafts = (row, count) => {
+  const installments = Math.max(1, Math.min(12, Number(count) || 1));
+  return splitInstallmentAmounts(row.amount, installments).map((amount, index) => ({
+    _id: generateId(),
+    amount,
+    paymentDate: row.date ? isoToLocalYMD(monthlyPaymentISO(row.date, index, 10)) : '',
+    paymentMethod: row.paymentMethod,
+  }));
+};
+
+const applyRowPatch = (row, patch) => {
+  const next = { ...row, ...patch };
+  if (next.type !== 'expense') return { ...next, installments: 1, installmentDrafts: [] };
+  const drafts = Array.isArray(row.installmentDrafts) ? row.installmentDrafts : [];
+  const scheduleChanged = drafts.length > 0
+    && ['amount', 'date'].some((key) => Object.prototype.hasOwnProperty.call(patch, key));
+  if (scheduleChanged) {
+    return { ...next, installments: drafts.length, installmentDrafts: buildInstallmentDrafts(next, drafts.length) };
+  }
+  if (drafts.length > 0 && Object.prototype.hasOwnProperty.call(patch, 'paymentMethod')) {
+    return {
+      ...next,
+      installmentDrafts: drafts.map((item) => ({ ...item, paymentMethod: next.paymentMethod })),
+    };
+  }
+  return next;
+};
+
 const progressText = (info) => {
   if (!info) return 'Reading file…';
   switch (info.stage) {
@@ -105,13 +140,18 @@ export const TransactionImportControls = () => {
         editing: false,
         manual: false,
         methodTouched: false,
-        date: raw.date || '',
+        // No date on this line? Default to today so the import is never blocked
+        // by a missing date (the row stays fully editable in the review table —
+        // the date input is pre-filled with today and the user can correct it).
+        date: raw.date || todayYMD(),
         description: raw.description || '',
         amount: raw.amount,
         currency: raw.currency || 'BRL',
         type: raw.type === 'income' ? 'income' : 'expense',
         category,
         paymentMethod: method,
+        installments: 1,
+        installmentDrafts: [],
         confidence: raw.confidence,
         raw: raw.raw || '',
       };
@@ -161,15 +201,42 @@ export const TransactionImportControls = () => {
 
   const cancelMethod = () => { setStep('idle'); setPendingFile(null); };
 
-  const patchRow = (id, patch) => setRows((prev) => prev.map((r) => (r._id === id ? { ...r, ...patch } : r)));
+  const patchRow = (id, patch) => setRows((prev) => prev.map((r) => (r._id === id ? applyRowPatch(r, patch) : r)));
   const deleteRow = (id) => setRows((prev) => prev.filter((r) => r._id !== id));
+
+  const setInstallmentCount = (id, count) => setRows((prev) => prev.map((row) => {
+    if (row._id !== id) return row;
+    const installments = Math.max(1, Math.min(12, Number(count) || 1));
+    return {
+      ...row,
+      installments,
+      installmentDrafts: installments > 1 ? buildInstallmentDrafts(row, installments) : [],
+    };
+  }));
+
+  const patchInstallment = (rowId, installmentId, patch) => setRows((prev) => prev.map((row) => (
+    row._id === rowId
+      ? { ...row, installmentDrafts: (row.installmentDrafts || []).map((item) => item._id === installmentId ? { ...item, ...patch } : item) }
+      : row
+  )));
+
+  const deleteInstallment = (rowId, installmentId) => setRows((prev) => prev.map((row) => {
+    if (row._id !== rowId) return row;
+    const installmentDrafts = (row.installmentDrafts || []).filter((item) => item._id !== installmentId);
+    return {
+      ...row,
+      installments: Math.max(1, installmentDrafts.length),
+      installmentDrafts,
+      keep: installmentDrafts.length > 0 ? row.keep : false,
+    };
+  }));
 
   const addRow = () => setRows((prev) => [
     ...(prev || []),
     {
       _id: generateId(), keep: true, editing: true, manual: true, methodTouched: false,
       date: todayYMD(), description: '', amount: 0, currency: 'BRL', type: 'expense',
-      category: DEFAULT_CATEGORY, paymentMethod: bulkMethod, confidence: 1, duplicate: false, missingFx: false, raw: '',
+      category: DEFAULT_CATEGORY, paymentMethod: bulkMethod, installments: 1, installmentDrafts: [], confidence: 1, duplicate: false, missingFx: false, raw: '',
     },
   ]);
 
@@ -177,7 +244,7 @@ export const TransactionImportControls = () => {
   // overridden (spec: applies to all unless an individual row was changed).
   const applyBulkMethod = (method) => {
     setBulkMethod(method);
-    setRows((prev) => (prev || []).map((r) => (r.methodTouched ? r : { ...r, paymentMethod: method })));
+    setRows((prev) => (prev || []).map((r) => (r.methodTouched ? r : applyRowPatch(r, { paymentMethod: method }))));
   };
 
   const keptCount = rows ? rows.filter((r) => r.keep).length : 0;
@@ -187,9 +254,15 @@ export const TransactionImportControls = () => {
     const blockedFx = (r) => r.currency === 'USD' && !(Number(fxRate) > 0);
     const kept = (rows || []).filter((r) => r.keep);
     // Validate every kept row before saving anything.
-    const broken = kept.filter((r) => !(Number(r.amount) > 0) || !r.paymentMethod);
+    const broken = kept.filter((r) => !(Number(r.amount) > 0) || !r.paymentMethod || !r.date);
     if (broken.length) {
-      setImportError(`Fix ${broken.length} row${broken.length === 1 ? '' : 's'}: each needs an amount greater than zero and a payment method.`);
+      setImportError(`Fix ${broken.length} row${broken.length === 1 ? '' : 's'}: each needs a purchase date, amount greater than zero, and payment method.`);
+      return;
+    }
+    const brokenInstallments = kept.filter((r) => (r.installmentDrafts || []).some((item) =>
+      !(Number(item.amount) > 0) || !item.paymentDate || !item.paymentMethod));
+    if (brokenInstallments.length) {
+      setImportError(`Fix the instalment schedule for ${brokenInstallments.length} purchase${brokenInstallments.length === 1 ? '' : 's'} before importing.`);
       return;
     }
     const importable = kept.filter((r) => !blockedFx(r));
@@ -199,8 +272,29 @@ export const TransactionImportControls = () => {
       setStep('idle'); setRows(null); setPendingFile(null);
       return;
     }
-    const list = importable.map((r) => {
+    const list = importable.flatMap((r) => {
       const type = r.type === 'income' ? 'income' : 'expense';
+      const installmentDrafts = type === 'expense' && Array.isArray(r.installmentDrafts)
+        ? r.installmentDrafts
+        : [];
+      if (installmentDrafts.length) {
+        const groupId = generateId();
+        const purchaseDate = localMidnightISO(r.date);
+        return installmentDrafts.map((installment, index) => ({
+          id: generateId(),
+          groupId,
+          date: ymdToISO(installment.paymentDate),
+          purchaseDate,
+          type: 'expense',
+          amount: storedAmountBRL({ ...r, amount: installment.amount }, fxRate),
+          description: installmentDrafts.length > 1
+            ? `${r.description} \u00b7 ${index + 1}/${installmentDrafts.length}`
+            : r.description,
+          category: normalizeCategoryName(r.category),
+          paymentMethod: installment.paymentMethod || r.paymentMethod,
+          tags: ['imported', 'ocr', 'installment'],
+        }));
+      }
       const { date, purchaseDate } = effectiveDates(r.date, r.paymentMethod, type);
       const row = {
         id: generateId(),
@@ -213,7 +307,7 @@ export const TransactionImportControls = () => {
         tags: ['imported', 'ocr'],
       };
       if (purchaseDate) row.purchaseDate = purchaseDate;
-      return row;
+      return [row];
     });
     const result = importTransactions(list);
     const usdConverted = importable.filter((r) => r.currency === 'USD' && Number(fxRate) > 0).length;
@@ -283,6 +377,9 @@ export const TransactionImportControls = () => {
           keptCount={keptCount}
           importError={importError}
           patchRow={patchRow}
+          setInstallmentCount={setInstallmentCount}
+          patchInstallment={patchInstallment}
+          deleteInstallment={deleteInstallment}
           deleteRow={deleteRow}
           addRow={addRow}
           applyBulkMethod={applyBulkMethod}
@@ -382,9 +479,77 @@ const LoadingOverlay = ({ tk, text, fileName }) => (
 // ---------------------------------------------------------------------------
 // Step 2 — review table
 // ---------------------------------------------------------------------------
+const InstallmentDraftEditor = ({ row, tk, methods, patchInstallment, deleteInstallment, setInstallmentCount }) => {
+  const drafts = Array.isArray(row.installmentDrafts) ? row.installmentDrafts : [];
+  const scheduledTotal = drafts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const originalTotal = Number(row.amount) || 0;
+  const average = drafts.length ? scheduledTotal / drafts.length : 0;
+  const mismatch = Math.abs(scheduledTotal - originalTotal) >= 0.005;
+  const inputStyle = {
+    width: '100%', background: 'transparent', border: `1px solid ${tk.hairline2}`,
+    borderRadius: 7, padding: '7px 9px', color: tk.text, fontSize: 12,
+    fontFamily: 'var(--font-mono)', outline: 'none', colorScheme: tk.isDark ? 'dark' : 'light',
+  };
+  const summary = [
+    ['Original purchase date', row.date || 'Not set'],
+    ['Original purchase value', formatByCurrency(originalTotal, row.currency)],
+    ['Instalments', `${drafts.length}x`],
+    ['Value / instalment', formatByCurrency(average, row.currency)],
+    ['Payment method', row.paymentMethod],
+  ];
+
+  return (
+    <div style={{ padding: 14, border: `1px solid ${tk.accent}55`, borderRadius: 12, background: tk.surface2 || 'transparent' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ color: tk.accent, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+          Instalment schedule - payment dates stay separate from purchase date
+        </div>
+        <button type="button" onClick={() => setInstallmentCount(row._id, 1)}
+          style={{ background: 'transparent', border: `1px solid ${tk.hairline2}`, color: tk.textDim, padding: '5px 10px', borderRadius: 999, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
+          Use single payment
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 10 }}>
+        {summary.map(([label, value]) => (
+          <div key={label} style={{ padding: '9px 10px', border: `1px solid ${tk.hairline}`, borderRadius: 9 }}>
+            <div style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase' }}>{label}</div>
+            <div style={{ color: tk.text, fontFamily: 'var(--font-mono)', fontSize: 12, marginTop: 4 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gap: 7, marginTop: 10 }}>
+        {drafts.map((installment, index) => (
+          <div key={installment._id} style={{ display: 'grid', gridTemplateColumns: '54px 150px 140px minmax(170px, 1fr) auto', gap: 8, alignItems: 'center' }}>
+            <span style={{ color: tk.accent, fontFamily: 'var(--font-mono)', fontSize: 10 }}>{index + 1}/{drafts.length}</span>
+            <input type="date" value={installment.paymentDate || ''}
+              onChange={(event) => patchInstallment(row._id, installment._id, { paymentDate: event.target.value })}
+              aria-label={`Payment date for instalment ${index + 1}`} style={inputStyle} />
+            <input type="number" inputMode="decimal" min="0.01" step="0.01" value={installment.amount}
+              onChange={(event) => patchInstallment(row._id, installment._id, { amount: Number(event.target.value) })}
+              aria-label={`Value for instalment ${index + 1}`} style={{ ...inputStyle, textAlign: 'right' }} />
+            <select value={installment.paymentMethod || row.paymentMethod}
+              onChange={(event) => patchInstallment(row._id, installment._id, { paymentMethod: event.target.value })}
+              aria-label={`Payment method for instalment ${index + 1}`} style={inputStyle}>
+              {methods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}
+            </select>
+            <button type="button" onClick={() => deleteInstallment(row._id, installment._id)}
+              style={{ background: 'transparent', border: `1px solid ${tk.hairline2}`, color: tk.negative, padding: '7px 10px', borderRadius: 999, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ color: mismatch ? tk.negative : tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 10 }}>
+        Scheduled total - {formatByCurrency(scheduledTotal, row.currency)}{mismatch ? ' - differs from original value' : ''}
+      </div>
+    </div>
+  );
+};
+
 const ReviewModal = ({
   rows, tk, fxRate, methods, categoriesList, bulkMethod, keptCount, importError,
-  patchRow, deleteRow, addRow, applyBulkMethod, onCancel, onConfirm,
+  patchRow, setInstallmentCount, patchInstallment, deleteInstallment,
+  deleteRow, addRow, applyBulkMethod, onCancel, onConfirm,
 }) => {
   const cell = { padding: '9px 10px', borderBottom: `1px solid ${tk.hairline}`, fontSize: 13, color: tk.text, verticalAlign: 'middle' };
   const head = { padding: '9px 10px', borderBottom: `1px solid ${tk.hairline}`, color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'left', whiteSpace: 'nowrap' };
@@ -460,17 +625,18 @@ const ReviewModal = ({
           </div>
         ) : (
           <div style={{ overflowX: 'auto', border: `1px solid ${tk.hairline}`, borderRadius: 12 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1040 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
               <thead>
                 <tr style={{ background: tk.surface2 || 'transparent' }}>
-                  {['Keep', 'Date', 'Description', 'Amount', 'Curr', 'Category', 'Type', 'Payment', 'Status', ''].map((h, i) => (
+                  {['Keep', 'Date', 'Description', 'Amount', 'Curr', 'Category', 'Type', 'Payment', 'Instalments', 'Status', ''].map((h, i) => (
                     <th key={i} style={head}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r._id} style={{ opacity: r.keep ? 1 : 0.5, transition: 'opacity 150ms' }}>
+                  <React.Fragment key={r._id}>
+                  <tr style={{ opacity: r.keep ? 1 : 0.5, transition: 'opacity 150ms' }}>
                     <td style={{ ...cell, textAlign: 'center' }}>
                       <input type="checkbox" checked={r.keep} onChange={(e) => patchRow(r._id, { keep: e.target.checked })} aria-label="Keep this row" />
                     </td>
@@ -540,6 +706,21 @@ const ReviewModal = ({
                         {methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                       </select>
                     </td>
+                    <td style={cell}>
+                      {r.type === 'expense' && r.editing ? (
+                        <select value={Math.max(1, Number(r.installments) || 1)}
+                          onChange={(event) => setInstallmentCount(r._id, event.target.value)}
+                          style={{ ...editInput, minWidth: 92 }}>
+                          {Array.from({ length: 12 }, (_, index) => index + 1).map((count) => (
+                            <option key={count} value={count}>{count}x</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                          {r.type === 'expense' ? `${Math.max(1, Number(r.installments) || 1)}x` : '-'}
+                        </span>
+                      )}
+                    </td>
                     <td style={cell}>{statusBadge(r)}</td>
                     <td style={{ ...cell, whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <button onClick={() => patchRow(r._id, { editing: !r.editing })}
@@ -552,6 +733,21 @@ const ReviewModal = ({
                       </button>
                     </td>
                   </tr>
+                  {r.editing && r.type === 'expense' && (r.installmentDrafts || []).length > 0 && (
+                    <tr>
+                      <td colSpan={11} style={{ padding: '0 10px 12px', borderBottom: `1px solid ${tk.hairline}` }}>
+                        <InstallmentDraftEditor
+                          row={r}
+                          tk={tk}
+                          methods={methods}
+                          patchInstallment={patchInstallment}
+                          deleteInstallment={deleteInstallment}
+                          setInstallmentCount={setInstallmentCount}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -562,6 +758,8 @@ const ReviewModal = ({
           <div style={{ color: importError ? tk.negative : tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', maxWidth: 560 }}>
             {importError || (rows.some((r) => r.missingFx)
               ? 'USD rows need a live FX rate to convert — fix the rate or untick them.'
+              : rows.some((r) => r.keep && (r.installmentDrafts || []).length > 0)
+              ? 'Instalments keep the original purchase date and use separate monthly payment dates.'
               : rows.some((r) => r.keep && r.type === 'expense' && isPostponedCard(r.paymentMethod))
               ? 'Mercado Pago rows will be scheduled for payment on the 10th of next month.'
               : 'Duplicates and zero-amount rows are unticked by default.')}

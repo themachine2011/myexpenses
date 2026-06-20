@@ -13,7 +13,8 @@ import {
   USELESS_CATEGORY,
 } from './2026-05-19-utils-category-colors.js';
 import { detectPendingCarryovers, buildCarryoverTx } from './2026-06-17-utils-carryover.js';
-import { isPostponedCard, cardPaymentISO, localMidnightISO } from './2026-06-19-utils-card-billing.js';
+import { isPostponedCard, cardPaymentISO, localMidnightISO, splitInstallmentAmounts } from './2026-06-19-utils-card-billing.js';
+import { dedupeRecurringTemplates, dedupeRecurringTransactions } from './2026-06-19-utils-recurring-deduplication.js';
 
 export { validateTransaction, validatePatch };
 export { findDuplicate, partitionDuplicates, buildDuplicateIndex };
@@ -198,6 +199,17 @@ export const currentMonthRange = (now = new Date()) => ({
   to:   new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
 });
 
+export const getPurchaseCycleRange = (year, monthIndex) => ({
+  from: new Date(year, monthIndex, 10),
+  to: new Date(year, monthIndex + 1, 10),
+});
+
+export const isPurchaseInCycle = (transaction, { from, to }) => {
+  if (transaction?.type !== 'expense') return false;
+  const purchaseDate = new Date(transaction.date);
+  return Number.isFinite(purchaseDate.getTime()) && purchaseDate >= from && purchaseDate < to;
+};
+
 // Cash available in the bank for the current period:
 // income − expenses − net savings flow − locked payments (financing installments within the range).
 // Savings deposits (income+Savings) reduce available cash because that money has been set aside;
@@ -307,6 +319,12 @@ const GOALS_KEY         = 'aurum.goals.v1';
 const DEBTS_KEY         = 'aurum.debts.v1';
 const REMINDERS_KEY     = 'aurum.reminders.v1';
 const NETWORTH_HIST_KEY = 'aurum.networth.history.v1';
+// Current net-worth values (apartment values + Triumph market value). New
+// additive key — previously this lived in plain in-memory state and reset on
+// every reload, so edits via the Net Worth / Triumph "Edit" buttons never
+// stuck. Persisting it keeps those edits across reloads. Old installs with no
+// stored value fall back to the defaults below.
+const NETWORTH_KEY      = 'aurum.networth.state.v1';
 const CATEGORY_COLORS_KEY = 'aurum.categoryColors.v1';
 const CATEGORIES_KEY      = 'aurum.categories.v1';
 const DASHBOARD_LAYOUT_KEY = 'aurum.dashboardLayout.v1';
@@ -566,10 +584,10 @@ export const useAppState = () => {
     [transactions]
   );
 
-  const [netWorthState, setNetWorthState] = useState({
+  const [netWorthState, setNetWorthState] = useStoredState(NETWORTH_KEY, {
     apartments: [
-      { id: 'apt1', name: 'Apartment POA',         value: 450000, rent: 2200, dueDate: 5,  sqm: 65 },
-      { id: 'apt2', name: 'Apartment Uruguaiana',  value: 380000, rent: 1800, dueDate: 10, sqm: 45 },
+      { id: 'apt1', name: 'Apartment POA',         value: 630000, rent: 2200, dueDate: 5,  sqm: 65 },
+      { id: 'apt2', name: 'Apartment Uruguaiana',  value: 245000, rent: 1800, dueDate: 10, sqm: 45 },
     ],
     motorcycle: {
       brand: 'Triumph', model: 'Street Triple RS', segment: 'Supernaked', horsepower: 130,
@@ -610,6 +628,12 @@ export const useAppState = () => {
   // never touches stored financial data.
   const [privacyHidden, setPrivacyHidden] = useState(false);
   const togglePrivacy = () => setPrivacyHidden((v) => !v);
+
+  useEffect(() => {
+    setRecurring((prev) => dedupeRecurringTemplates(prev));
+    setTransactions((prev) => dedupeRecurringTransactions(prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setTransactions((prev) => {
@@ -758,9 +782,7 @@ export const useAppState = () => {
     });
     if (!v.ok) return { ok: false, errors: v.errors };
     const n = Math.max(1, Math.min(12, Number(installments) || 1));
-    const total = Number(amount) || 0;
-    const base = Math.floor((total / n) * 100) / 100;
-    const last = Math.round((total - base * (n - 1)) * 100) / 100;
+    const installmentAmounts = splitInstallmentAmounts(amount, n);
     const start = new Date(firstDate);
     const out = [];
     const groupId = generateId();
@@ -779,7 +801,7 @@ export const useAppState = () => {
         id: `${groupId}-${i}`,
         groupId,
         type: txType,
-        amount: i === n - 1 ? last : base,
+        amount: installmentAmounts[i],
         description: n > 1 ? `${description} · ${i + 1}/${n}` : description,
         category: normalizedCategory,
         paymentMethod,
@@ -928,8 +950,8 @@ export const useAppState = () => {
   const deleteRule = (id)   => setRules((p) => p.filter((r) => r.id !== id));
 
   // Recurring transaction templates
-  const addRecurring    = (tpl)       => setRecurring((p) => [...p, { id: generateId(), lastFiredKey: '', ...tpl, category: normalizeStoredCategory(tpl?.category) }]);
-  const updateRecurring = (id, patch) => setRecurring((p) => p.map((r) => r.id === id ? { ...r, ...patch, ...(patch?.category !== undefined ? { category: normalizeStoredCategory(patch.category) } : {}) } : r));
+  const addRecurring    = (tpl)       => setRecurring((p) => dedupeRecurringTemplates([...p, { id: generateId(), lastFiredKey: '', ...tpl, category: normalizeStoredCategory(tpl?.category) }]));
+  const updateRecurring = (id, patch) => setRecurring((p) => dedupeRecurringTemplates(p.map((r) => r.id === id ? { ...r, ...patch, ...(patch?.category !== undefined ? { category: normalizeStoredCategory(patch.category) } : {}) } : r)));
   const deleteRecurring = (id)        => setRecurring((p) => p.filter((r) => r.id !== id));
 
   // Budgets
@@ -962,11 +984,12 @@ export const useAppState = () => {
   // here (tracked by original-object reference) and write it back to the
   // recurring state in the same effect.
   useEffect(() => {
-    if (!recurring.length) return;
+    const activeRecurring = dedupeRecurringTemplates(recurring);
+    if (!activeRecurring.length) return;
     const now = new Date();
     const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const today  = now.getDate();
-    const toFire = recurring.filter((r) => {
+    const toFire = activeRecurring.filter((r) => {
       const day = Math.max(1, Math.min(28, Number(r.dayOfMonth) || 1));
       return day <= today && r.lastFiredKey !== curKey;
     });
@@ -991,20 +1014,26 @@ export const useAppState = () => {
       tags: ['recurring'],
     }));
     setTransactions((p) => {
-      const ids = new Set(p.map((t) => t.id));
+      const existing = dedupeRecurringTransactions(p);
+      const ids = new Set(existing.map((t) => t.id));
       const fresh = newTxs.filter((t) => !ids.has(t.id));
-      if (!fresh.length) return p;
-      return [...fresh, ...p].sort((a, b) => new Date(b.date) - new Date(a.date));
+      if (!fresh.length) return existing;
+      return dedupeRecurringTransactions([...fresh, ...existing].sort((a, b) => new Date(b.date) - new Date(a.date)));
     });
     // Persist the synthesized id AND lastFiredKey on each fired template.
     // Match by reference because legacy templates that lack `id` can't be
     // matched by id without false positives.
-    setRecurring((p) => p.map((r) => {
+    setRecurring((p) => dedupeRecurringTemplates(p).map((r) => {
       if (!firedIds.has(r)) return r;
       return { ...r, id: firedIds.get(r), lastFiredKey: curKey };
     }));
+    // Re-run whenever the recurring list changes (not just on mount) so a
+    // template the user ADDS mid-session fires its current-month charge
+    // immediately — no page reload needed. The `lastFiredKey !== curKey` guard
+    // above keeps this idempotent (already-fired templates are skipped, so this
+    // can't loop or double-charge).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [recurring]);
 
   // One-shot backfill: older recurring fires were saved without locked:true
   // (and some without the 'recurring' tag at all — earlier code paths only
