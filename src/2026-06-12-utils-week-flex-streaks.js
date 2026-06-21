@@ -19,6 +19,7 @@
 //     BRL/USD wallet toggle keeps working (display only).
 
 import { inRange } from './2026-06-09-utils-analytics.js';
+import { isFixedExpense, fixedDurationGroupIds } from './2026-06-21-utils-fixed-expense.js';
 
 // Same real-spend/real-income definitions as the shared analytics util (they
 // are module-private there; restated to keep the definition identical).
@@ -94,13 +95,16 @@ export const weekDigest = (transactions, now = new Date()) => {
 export const fixedFlexReport = (transactions, from, to) => {
   const catMap = new Map();
   let fixed = 0, flex = 0;
+  // Same app-wide rule as everywhere else: committed = locked / subscription /
+  // 6+ month plan. Compute the 6-month groups once over the full list.
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
 
   for (const t of transactions || []) {
     if (!isRealExpense(t)) continue;
     if (!inRange(t, from, to)) continue;
     let row = catMap.get(t.category);
     if (!row) { row = { category: t.category, fixed: 0, flex: 0, total: 0 }; catMap.set(t.category, row); }
-    if (t.locked) { row.fixed += t.amount; fixed += t.amount; }
+    if (isFixedExpense(t, fixedGroupIds)) { row.fixed += t.amount; fixed += t.amount; }
     else { row.flex += t.amount; flex += t.amount; }
     row.total += t.amount;
   }
@@ -126,6 +130,7 @@ export const fixedFlexReport = (transactions, from, to) => {
 // (capped at `days` back) so an empty history doesn't fake a long streak.
 export const streaksReport = (transactions, { days = 90, now = new Date() } = {}) => {
   const today = dayStart(now);
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
 
   let firstTxDay = null;
   const spendByDay = new Map(); // dayKey -> flexible spend that day
@@ -133,7 +138,9 @@ export const streaksReport = (transactions, { days = 90, now = new Date() } = {}
     const d = dayStart(new Date(t.date));
     if (d > today) continue; // future instalments aren't "days lived" yet
     if (!firstTxDay || d < firstTxDay) firstTxDay = d;
-    if (!isRealExpense(t) || t.locked) continue;
+    // Committed rows (fixed by the app-wide rule) don't break a no-spend day —
+    // a 6-month instalment / subscription isn't a choice you made that day.
+    if (!isRealExpense(t) || isFixedExpense(t, fixedGroupIds)) continue;
     const k = dayKey(d);
     spendByDay.set(k, (spendByDay.get(k) || 0) + t.amount);
   }

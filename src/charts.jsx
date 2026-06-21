@@ -7,12 +7,14 @@ import {
 import { fmtCurrency } from './tokens.jsx';
 import { useAppContext } from './context.jsx';
 import { getCategoryDisplayName, normalizeCategoryName } from './2026-05-19-utils-category-colors.js';
-import { InlineCardTitle } from './card-explanations.jsx';
 import {
   BlackOutlineActiveShape,
   ExpensePieActiveShape,
   usePieInteractions,
 } from './2026-05-20-hook-pie-interactions.jsx';
+import { FIXED_MONTHS_THRESHOLD, fixedDurationGroupIds, isFixedExpense, isSubscriptionTx } from './2026-06-21-utils-fixed-expense.js';
+// Re-export so existing `import { isFixedExpense } from './charts.jsx'` keeps working.
+export { FIXED_MONTHS_THRESHOLD, fixedDurationGroupIds, isFixedExpense, isSubscriptionTx };
 
 export const AuTooltip = ({ active, payload, label, tokens, fmt }) => {
   if (!active || !payload || !payload.length) return null;
@@ -107,7 +109,7 @@ export const RotatingCharts = ({ data, lines, timeRange, setTimeRange, tabs }) =
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom: 16, flexWrap:'wrap', gap: 12 }}>
         <div>
-          <InlineCardTitle style={{ fontSize: 11, letterSpacing: '0.3em', textTransform:'uppercase', color: themeTokens.textDim, fontFamily: 'var(--font-mono)' }}>{cur.name}</InlineCardTitle>
+          <div style={{ fontSize: 11, letterSpacing: '0.3em', textTransform:'uppercase', color: themeTokens.textDim, fontFamily: 'var(--font-mono)' }}>{cur.name}</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 44, lineHeight: 1, marginTop: 4, color: themeTokens.text, letterSpacing: '-0.02em' }}>
             {fmt(data[data.length-1]?.[cur.key] || 0)}
           </div>
@@ -434,46 +436,9 @@ export const RetentionBar = ({ data, accent, soft, hairline }) => {
   );
 };
 
-// ── Fixed vs Variable classification ─────────────────────────────────────────
-// A purchase is "Fixed" when the user is committed to it for 6+ months — not
-// because of what it's called. A row qualifies two ways:
-//   1. It's already locked — financing instalments, subscriptions and recurring
-//      fires are stored with locked:true.
-//   2. It belongs to a multi-payment group (instalments / scheduled payments
-//      that share a hidden groupId) whose plan runs 6 monthly payments — or a
-//      6-month span — or longer.
-// Anything shorter (a one-off, or a 3x instalment) stays Variable. Split-purchase
-// legs also share a groupId but all fall on ONE date, so they collapse to a
-// single month and never trip the 6-month test.
-export const FIXED_MONTHS_THRESHOLD = 6;
-
-// From the FULL transaction list, the set of groupIds whose payment plan lasts
-// FIXED_MONTHS_THRESHOLD months or longer. Always pass the whole list — a plan
-// can span months the caller is about to filter out.
-export const fixedDurationGroupIds = (transactions, threshold = FIXED_MONTHS_THRESHOLD) => {
-  const monthsByGroup = new Map(); // groupId -> Set<year*12 + month>
-  for (const tx of transactions || []) {
-    if (!tx || tx.type === 'income' || !tx.groupId) continue;
-    const d = new Date(tx.date);
-    if (Number.isNaN(d.getTime())) continue;
-    const idx = d.getFullYear() * 12 + d.getMonth();
-    let months = monthsByGroup.get(tx.groupId);
-    if (!months) { months = new Set(); monthsByGroup.set(tx.groupId, months); }
-    months.add(idx);
-  }
-  const fixed = new Set();
-  for (const [groupId, months] of monthsByGroup) {
-    const idxs = [...months];
-    const span = idxs.length ? Math.max(...idxs) - Math.min(...idxs) + 1 : 0;
-    // 6+ distinct payment months, OR a 6-month-or-longer span (handles gaps).
-    if (months.size >= threshold || span >= threshold) fixed.add(groupId);
-  }
-  return fixed;
-};
-
-// Single source of truth shared by every chart and KPI: is this expense Fixed?
-export const isFixedExpense = (tx, fixedGroupIds) =>
-  !!(tx && (tx.locked || (tx.groupId && fixedGroupIds && fixedGroupIds.has(tx.groupId))));
+// Fixed vs Variable classification now lives in one framework-free module so
+// every tab / card / graph shares the SAME rule — see the import + re-export at
+// the top of this file. (src/2026-06-21-utils-fixed-expense.js)
 
 // Calendar-year series: 12 entries Jan–Dec for the given year. Used by the
 // Graphs page so the default window is always Jan 1 → Dec 31 of one year.

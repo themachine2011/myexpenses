@@ -15,6 +15,8 @@
 //   - These helpers never format currency; callers use the context `fmt()` so
 //     the global BRL/USD wallet toggle keeps working (display only).
 
+import { isFixedExpense, fixedDurationGroupIds } from './2026-06-21-utils-fixed-expense.js';
+
 export const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
 // Month range for `offset` months back from `now` (0 = current month).
@@ -54,12 +56,15 @@ const isRealIncome = (t) => t.type === 'income' && t.category !== 'Savings';
 // Period totals consistent with the Dashboard's actual-spending definition.
 export const periodTotals = (transactions, from, to) => {
   let income = 0, expense = 0, fixed = 0;
+  // Compute the 6+ month installment groups ONCE over the full list (not per
+  // row), then reuse the central rule so this matches the Dashboard everywhere.
+  const fixedGroupIds = fixedDurationGroupIds(transactions);
   for (const t of transactions) {
     if (!inRange(t, from, to)) continue;
     if (isRealIncome(t)) income += t.amount;
     else if (isRealExpense(t)) {
       expense += t.amount;
-      if (t.locked) fixed += t.amount;
+      if (isFixedExpense(t, fixedGroupIds)) fixed += t.amount;
     }
   }
   return { income, expense, fixed, cashflow: income - expense };

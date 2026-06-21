@@ -63,13 +63,17 @@ export const moneyFlowReport = (transactions, year, month, dayCap = null) => {
   const totals = monthBucketTotals(transactions, year, month, dayCap);
   const income = totals.income;
   const expense = totals.expense;
+  // Rows are already split by the central rule (monthBucketRows). Tag a category
+  // as fixed when ANY of its rows landed in the fixed bucket — never re-derive
+  // from tx.locked, so the badge always agrees with the bucket it sits in.
+  const fixedIds = new Set(rows.fixed.map((t) => t.id));
   const byCat = new Map();
   for (const tx of [...rows.fixed, ...rows.variable]) {
     const key = tx.category || 'Uncategorized';
     const prev = byCat.get(key) || { category: key, total: 0, count: 0, fixed: false };
     prev.total += tx.amount || 0;
     prev.count += 1;
-    if (tx.locked) prev.fixed = true;
+    if (fixedIds.has(tx.id)) prev.fixed = true;
     byCat.set(key, prev);
   }
   const categories = [...byCat.values()].sort((a, b) => b.total - a.total);

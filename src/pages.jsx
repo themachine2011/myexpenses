@@ -3,11 +3,10 @@ import { motion } from 'framer-motion';
 import { useAppContext } from './context.jsx';
 import { resolveRange, REQUIRED_CATEGORIES, DEFAULT_CATEGORY, DEFAULT_SPLIT_CATEGORY, MOTO_AMOUNT, MOTO_COUNT, transactionsToCSV, parseTransactionsCSV, currentMonthRange, getPurchaseCycleRange, isPurchaseInCycle, computeAvailableCash, goalProgress, debtTotals } from './context.jsx';
 import { fmtCurrency } from './tokens.jsx';
-import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries, monthBucketTotals, monthBucketRows } from './charts.jsx';
+import { AreaSpark, RotatingCharts, ExpensePie, ComposedFlow, RadarHealth, RadialGauge, RetentionBar, buildMonthlySeries, buildYearSeries, monthBucketTotals, monthBucketRows, isFixedExpense, fixedDurationGroupIds } from './charts.jsx';
 import { SpendHeatmapSurface } from './heatmap.jsx';
 import { buildBackupPayload, downloadBackup } from './2026-05-16-backup-scheduled-json-export.jsx';
 import { getCategoryDisplayName, normalizeCategoryName, USELESS_CATEGORY } from './2026-05-19-utils-category-colors.js';
-import { CardExplanationButton } from './card-explanations.jsx';
 import { useScrollVelocityBlur } from './2026-05-26-hook-scroll-velocity-blur.jsx';
 import { DashboardFinancialStatements } from './2026-05-28-component-financial-statements.jsx';
 import { TransactionImportControls } from './2026-06-18-feature-transaction-import.jsx';
@@ -127,7 +126,6 @@ export const Eyebrow = ({ children, color }) => {
       maxWidth: '100%',
     }}>
       <span style={{ minWidth: 0 }}>{children}</span>
-      <CardExplanationButton title={children} />
     </div>
   );
 };
@@ -1671,7 +1669,12 @@ export const Dashboard = () => {
     [transactions, yoyDelta]
   );
   const yoyFixed = useMemo(
-    () => yoyDelta(now.getFullYear(), now.getMonth(), (txs) => txs.reduce((s, t) => s + ((t.type === 'expense' && t.locked) ? t.amount : 0), 0)),
+    () => {
+      // Same rule (and same 6-month groups, measured over the full list) as the
+      // "Fixed Expenses" value above, so the number and its YoY badge agree.
+      const fixedGroupIds = fixedDurationGroupIds(transactions);
+      return yoyDelta(now.getFullYear(), now.getMonth(), (txs) => txs.reduce((s, t) => s + (isFixedExpense(t, fixedGroupIds) ? t.amount : 0), 0));
+    },
     [transactions, yoyDelta]
   );
 
@@ -4834,6 +4837,9 @@ export const WalletBreakdownCard = ({ onClose }) => {
     () => [...fixed, ...variable].sort((a, b) => new Date(b.date) - new Date(a.date)),
     [fixed, variable],
   );
+  // "· fixed" badge reads the central fixed bucket (monthBucketRows), not raw
+  // tx.locked — so it matches the app-wide rule (subscriptions, 6+ month plans).
+  const fixedIds = useMemo(() => new Set(fixed.map((t) => t.id)), [fixed]);
   const incomeTotal    = income.reduce((s, t) => s + (t.amount || 0), 0);
   const purchasesTotal = purchases.reduce((s, t) => s + (t.amount || 0), 0);
   const wallet         = incomeTotal - purchasesTotal;
@@ -4909,7 +4915,7 @@ export const WalletBreakdownCard = ({ onClose }) => {
                           {inst}
                         </span>
                       )}
-                      {tx.locked && <span style={{ opacity: 0.8 }}>· fixed</span>}
+                      {fixedIds.has(tx.id) && <span style={{ opacity: 0.8 }}>· fixed</span>}
                       <span style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
                         <EditBtn locked={tx.locked} onClick={() => setEditingTx(tx)} />
                         <TrashBtn locked={tx.locked} onClick={() => { if (confirmDelete('Delete this transaction?')) deleteTransaction(tx.id); }} />

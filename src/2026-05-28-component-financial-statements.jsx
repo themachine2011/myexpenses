@@ -30,7 +30,7 @@ function withinRange(date, { from, to }) {
 }
 
 function aggregatePeriod(transactions, range) {
-  let income = 0, operating = 0, financing = 0, savingsFlow = 0, fixed = 0, variable = 0;
+  let income = 0, operating = 0, financing = 0, savingsFlow = 0;
   const incomeByCategory   = new Map();
   const expenseByCategory  = new Map();
 
@@ -46,14 +46,13 @@ function aggregatePeriod(transactions, range) {
       if (t.category === SAVINGS_CATEGORY) { savingsFlow += amt; continue; }
       if (FINANCING_CATEGORIES.has(t.category)) financing += amt;
       else operating += amt;
-      if (t.locked) fixed += amt; else variable += amt;
       expenseByCategory.set(t.category, (expenseByCategory.get(t.category) || 0) + amt);
     }
   }
 
   const totalExpense = operating + financing;
   const net          = income - totalExpense;
-  return { income, totalExpense, operating, financing, savingsFlow, fixed, variable, net,
+  return { income, totalExpense, operating, financing, savingsFlow, net,
            incomeByCategory, expenseByCategory };
 }
 
