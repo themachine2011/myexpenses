@@ -21,7 +21,6 @@ import {
   TRIUMPH_FINANCING_RED,
   valueColor,
 } from './2026-05-19-utils-category-colors.js';
-import { InlineCardTitle } from './card-explanations.jsx';
 import { LockedReferenceCard } from './2026-05-18-component-locked-reference-card.jsx';
 import { usePieInteractions, BlackOutlineActiveShape } from './2026-05-20-hook-pie-interactions.jsx';
 import { getInvertedCardTokens } from './2026-05-20-utils-inverted-card.js';
@@ -511,13 +510,13 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
       overflow: 'hidden',
     }}>
       <div>
-        <InlineCardTitle style={{
+        <div style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 10,
           letterSpacing: '0.28em',
           textTransform: 'uppercase',
           color: themeTokens.textDim,
-        }}>Average by Category</InlineCardTitle>
+        }}>Average by Category</div>
         <div style={{
           marginTop: 4,
           color: themeTokens.text,
@@ -699,9 +698,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
         }}
       >
         <div style={{ display: 'grid', gap: 8 }}>
-          <InlineCardTitle explanationKey="Distribution" style={{ color: invCardMuted, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <div style={{ color: invCardMuted, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Distribution
-          </InlineCardTitle>
+          </div>
           <div {...pie.tiltLayerProps} style={{ height: 188 }}>
             {pieData.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -775,9 +774,9 @@ export const CategoryAverageChartSection = ({ selectedMonthYear }) => {
           transition: 'transform 180ms cubic-bezier(0.22,1,0.36,1)',
           willChange: 'transform',
         }}>
-          <InlineCardTitle style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <div style={{ color: themeTokens.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Period comparison
-          </InlineCardTitle>
+          </div>
           <div style={{
             minHeight: 248,
             display: 'grid',

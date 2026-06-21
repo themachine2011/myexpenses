@@ -390,13 +390,9 @@ function GlassBackdrop({ glass }) {
     let settleId  = 0;
     let pending   = false;
 
-    // Stacking-context note: applying `transform` to a card creates a new
-    // containing block, which traps `position: fixed` children — including
-    // the explanation balloon, which is supposed to overflow above any
-    // neighboring card. To keep the balloon escape-able while idle, we
-    // only set `data-glass-scrolling` (which gates the transform CSS) for
+    // Only set `data-glass-scrolling` (which gates the transform CSS) for
     // the brief window the user is actively scrolling. Between scrolls,
-    // no transform exists on the cards, so the balloon floats correctly.
+    // no transform remains on the cards.
     const settle = () => {
       root.style.setProperty('--glass-card-lift', '0px');
       root.style.removeProperty('--glass-card-shadow-active');
@@ -486,10 +482,7 @@ function GlassBackdrop({ glass }) {
       /* Floating-card scroll-depth -- only when Wet Glass Motion (E) is the
          active design AND the user is actively scrolling. The
          data-glass-scrolling attribute is toggled by the scroll handler and
-         removed about 250ms after the last scroll event. Gating transform on
-         this attribute keeps cards free of a stacking context while idle,
-         which is what lets the explanation balloon (position: fixed) float
-         above neighboring cards instead of being clipped inside them. */
+         removed about 250ms after the last scroll event. */
       html[data-glass-active="true"][data-glass-design="E"] [style*="#1E1E1E"],
       html[data-glass-active="true"][data-glass-design="E"] [style*="#1e1e1e"],
       html[data-glass-active="true"][data-glass-design="E"] [style*="rgb(30, 30, 30)"],

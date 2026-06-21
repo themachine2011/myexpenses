@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAppContext } from './context.jsx';
 import { WheelPeriodSelector } from './2026-05-19-component-wheel-period-selector.jsx';
-import { InlineCardTitle } from './card-explanations.jsx';
 
 const MONTHS = Array.from({ length: 12 }, (_, month) => ({
   value: month,
@@ -41,13 +40,13 @@ export const DashboardMonthYearSelector = ({ value, onChange }) => {
         transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
       }}
     >
-      <InlineCardTitle style={{
+      <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 10,
         letterSpacing: '0.28em',
         textTransform: 'uppercase',
         color: themeTokens.textDim,
-      }}>Month Selector</InlineCardTitle>
+      }}>Month Selector</div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <WheelPeriodSelector
