@@ -3742,8 +3742,8 @@ export const LedgerPage = () => {
   const {
     transactions, themeTokens, fmt, deleteTransaction, editTransaction, handleClearHistory,
     searchQuery, setSearchQuery, focusTxId, setFocusTxId, dateFilter,
+    ledgerTab, setLedgerTab, // shared so App.jsx can hide the history sidebar on Income
   } = useAppContext();
-  const [ledgerTab, setLedgerTab] = useState('transactions'); // 'transactions' | 'income'
   const [editingTx, setEditingTx] = useState(null);
   const [cardFilter, setCardFilter] = useState('all');
   const [amountMin, setAmountMin]   = useState('');

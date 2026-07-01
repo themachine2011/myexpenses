@@ -629,6 +629,11 @@ export const useAppState = () => {
   const [privacyHidden, setPrivacyHidden] = useState(false);
   const togglePrivacy = () => setPrivacyHidden((v) => !v);
 
+  // Active Ledger sub-tab ('transactions' | 'income'). Shared so App.jsx can
+  // drop the Transaction History sidebar (and reclaim its column) on the income
+  // view, then restore it on transactions. Display-only navigation state.
+  const [ledgerTab, setLedgerTab] = useState('transactions');
+
   useEffect(() => {
     setRecurring((prev) => dedupeRecurringTemplates(prev));
     setTransactions((prev) => dedupeRecurringTransactions(prev));
@@ -1128,6 +1133,7 @@ export const useAppState = () => {
     dashboardLayout, toggleDashboardPanel,
     focusedCardMethod, setFocusedCardMethod,
     privacyHidden, togglePrivacy, setPrivacyHidden,
+    ledgerTab, setLedgerTab,
     // Bound calc helpers
     suggestCategory: (desc) => suggestCategory(desc, rules),
     budgetUsage:     (cat)  => budgetUsage(transactions, cat, budgets),

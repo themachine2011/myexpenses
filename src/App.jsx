@@ -580,7 +580,7 @@ const App = () => {
           maxWidth: 1640, margin: '0 auto', padding: '32px 28px',
           position: 'relative', zIndex: 1,
           display: 'grid',
-          gridTemplateColumns: state.view === 'ledger'
+          gridTemplateColumns: (state.view === 'ledger' && state.ledgerTab !== 'income')
             ? '300px minmax(0, 1fr) 360px'
             : '300px minmax(0, 1fr)',
           gap: 24,
@@ -616,7 +616,7 @@ const App = () => {
             </AnimatePresence>
           </div>
 
-          {state.view === 'ledger' && (
+          {state.view === 'ledger' && state.ledgerTab !== 'income' && (
             <aside style={{ position: 'sticky', top: 96 }}>
               <HistorySidebar />
             </aside>
