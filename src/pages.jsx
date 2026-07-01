@@ -45,6 +45,12 @@ import { NetWorthTrajectoryPreview } from './2026-06-17-feature-networth-traject
 import { EmergencyFundPreview } from './2026-06-18-feature-emergency-fund.jsx';
 // 2026-06-17 — confirm-first carryover prompt for a negative previous month.
 import { CarryoverPrompt } from './2026-06-17-feature-carryover.jsx';
+// 2026-07-01 — Ledger · Income Visibility (income-only, read-only math).
+import {
+  filterIncome, summarizeIncome, groupIncomeBySource, groupIncomeByMonth,
+  incomePeriodLabel, incomeStatus, isRealIncome, monthRangeForOffset,
+  incomeSourceKey, incomeSourceLabel,
+} from './2026-07-01-utils-ledger-income.js';
 
 const categoryLabel = (category) => getCategoryDisplayName(category);
 
@@ -3299,11 +3305,391 @@ export const GlobalSearch = () => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// Income Visibility (2026-07-01) — the Ledger's income-only sub-tab.
+//
+// Strictly read-only. Every value is derived from real `transactions` via the
+// pure helpers in 2026-07-01-utils-ledger-income.js (income only, Savings
+// transfers excluded). Nothing is invented, mocked, estimated or hardcoded — an
+// empty filter renders an empty state, never placeholder numbers. Pending vs
+// Received reuses the app's existing signals only (status:'pending' or a
+// future-dated row). All filter state is LOCAL so the Transactions view's shared
+// dateFilter/searchQuery are never disturbed. Clicking any row opens the SAME
+// EditTransactionDialog on the original transaction, so income traces straight
+// back to its source. Owned dialog stays in LedgerPage; this view raises onEdit.
+// ---------------------------------------------------------------------------
+
+const GOLD = '#E0B33B'; // the Ledger's existing "expected / future" accent
+
+const IncomeStatusBadge = ({ status, tk }) => {
+  const pending = status === 'pending';
+  const color = pending ? GOLD : (tk.positive || '#3FB98F');
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '2px 8px', borderRadius: 999,
+      border: `1px solid ${color}55`, background: `${color}18`, color,
+      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.16em',
+      textTransform: 'uppercase', fontWeight: 600, lineHeight: 1.4, whiteSpace: 'nowrap',
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
+      {pending ? 'Pending' : 'Received'}
+    </span>
+  );
+};
+
+const LedgerIncomeView = ({ onEdit }) => {
+  const { transactions, themeTokens: tk, fmt, getCategoryColor, privacyHidden, togglePrivacy } = useAppContext();
+  const now = useMemo(() => new Date(), []);
+
+  // --- local, isolated filter state (never touches the shared ledger filters)
+  const [period, setPeriod] = useState({ kind: 'all' });      // all | month(offset) | range(from,to)
+  const [status, setStatus] = useState('all');                // all | received | pending
+  const [source, setSource] = useState('all');                // all | <category>
+  const [query, setQuery]   = useState('');
+  const [view, setView]     = useState('list');               // list | source | month
+  const [compact, setCompact] = useState(false);
+  const [openId, setOpenId] = useState(null);                 // expanded row (detailed)
+  const [openGroup, setOpenGroup] = useState(null);           // expanded group card
+
+  // Real income rows available at all (drives the source picker + "any income?")
+  const incomeAll = useMemo(() => transactions.filter((t) => isRealIncome(t)), [transactions]);
+  const sources = useMemo(() => {
+    const map = new Map();
+    for (const t of incomeAll) {
+      const key = incomeSourceKey(t);
+      if (!map.has(key)) map.set(key, incomeSourceLabel(t));
+    }
+    return Array.from(map, ([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [incomeAll]);
+
+  // The filtered, visible income — the single source of truth for this view.
+  const visible = useMemo(
+    () => filterIncome(transactions, { period, status, source, query, now }),
+    [transactions, period, status, source, query, now]
+  );
+  const summary = useMemo(() => summarizeIncome(visible, now), [visible, now]);
+  const bySource = useMemo(() => groupIncomeBySource(visible, now), [visible, now]);
+  const byMonth  = useMemo(() => groupIncomeByMonth(visible, now), [visible, now]);
+  const periodLabel = incomePeriodLabel(period, status, now);
+
+  // Mini monthly bar strip (chronological) — a small chart over VISIBLE income.
+  const monthlyChron = useMemo(() => byMonth.slice(0, 12).reverse(), [byMonth]);
+  const maxMonth = Math.max(1, ...monthlyChron.map((m) => m.total));
+
+  const filtersActive = period.kind !== 'all' || status !== 'all' || source !== 'all' || query.trim() !== '';
+  const resetAll = () => { setPeriod({ kind: 'all' }); setStatus('all'); setSource('all'); setQuery(''); };
+
+  // --- shared styling helpers (mirror the existing Ledger filter chips) -------
+  const chip = (active, accent) => ({
+    padding: '6px 12px', borderRadius: 999,
+    border: `1px solid ${active ? (accent || tk.accent) : tk.hairline2}`,
+    background: active ? (accent || tk.accent) : 'transparent',
+    color: active ? '#0B0B0D' : tk.textDim,
+    fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em',
+    textTransform: 'uppercase', cursor: 'pointer', transition: 'all 200ms', whiteSpace: 'nowrap',
+  });
+  const selectStyle = {
+    background: 'transparent', border: `1px solid ${tk.hairline2}`, borderRadius: 8,
+    padding: '6px 10px', color: tk.text, fontFamily: 'var(--font-mono)', fontSize: 11,
+    outline: 'none', cursor: 'pointer', colorScheme: tk.isDark ? 'dark' : 'light',
+  };
+  const dateInput = {
+    background: 'transparent', border: `1px solid ${tk.hairline2}`, borderRadius: 8,
+    padding: '6px 8px', color: tk.text, fontFamily: 'var(--font-mono)', fontSize: 11,
+    outline: 'none', colorScheme: tk.isDark ? 'dark' : 'light',
+  };
+  const Money = ({ value, color, size = 14, weight = 400 }) => (
+    <span style={{
+      display: 'inline-block', ...privacyMaskStyle(privacyHidden),
+      fontFamily: 'var(--font-mono)', fontSize: size, fontWeight: weight, color: color || tk.text,
+    }} aria-hidden={privacyHidden || undefined}>{value}</span>
+  );
+
+  const StatBlock = ({ label, children, hint }) => (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: tk.textDim }}>{label}</div>
+      <div style={{ marginTop: 6 }}>{children}</div>
+      {hint && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: tk.textDim, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hint}</div>}
+    </div>
+  );
+
+  // Reusable expandable income row (used by list view and inside group cards).
+  const IncomeRow = ({ tx }) => {
+    const st = incomeStatus(tx, now);
+    const pending = st === 'pending';
+    const d = new Date(tx.date);
+    const isOpen = openId === tx.id;
+    const cat = tx.category || 'Uncategorized';
+    const color = getCategoryColor ? getCategoryColor(cat) : tk.accent;
+    return (
+      <div data-tx-id={tx.id} style={{ borderBottom: `1px solid ${tk.hairline}` }}>
+        <div
+          onClick={() => setOpenId(isOpen ? null : tx.id)}
+          style={{
+            display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 14,
+            padding: compact ? '9px 20px' : '13px 20px', alignItems: 'center', cursor: 'pointer',
+          }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: pending ? GOLD : tk.textDim, width: 64 }}>
+            {d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', ...(d.getFullYear() !== now.getFullYear() ? { year: '2-digit' } : {}) })}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: tk.text, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.description || '(no description)'}</div>
+            {!compact && (
+              <div style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                  {categoryLabel(cat)}
+                </span>
+                {PAYMENT_CHIP[tx.paymentMethod]
+                  ? <PaymentChip method={tx.paymentMethod} />
+                  : <span>· {tx.paymentMethod || '—'}</span>}
+              </div>
+            )}
+          </div>
+          <IncomeStatusBadge status={st} tk={tk} />
+          <Money value={`+${fmt(tx.amount)}`} color={pending ? GOLD : (tk.positive || tk.text)} weight={500} />
+        </div>
+        {isOpen && (
+          <div style={{ padding: '2px 20px 14px 78px', display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 18px', fontFamily: 'var(--font-mono)', fontSize: 11, color: tk.textDim }}>
+              <span>Date · {d.toLocaleDateString('en-GB')}</span>
+              <span>Source · {categoryLabel(cat)}</span>
+              <span>Account · {tx.paymentMethod || '—'}</span>
+              <span>Status · {pending ? 'Pending' : 'Received'}{tx.status ? ` (${tx.status})` : (pending ? ' (future-dated)' : '')}</span>
+            </div>
+            {(tx.tags || []).length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {tx.tags.map((tag) => (
+                  <span key={tag} style={{ padding: '2px 8px', borderRadius: 999, border: `1px solid ${tk.hairline2}`, color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase' }}>#{tag}</span>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: tk.textFaint || tk.textDim, letterSpacing: '0.1em' }}>
+                Source ref · {tx.id}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit && onEdit(tx); }}
+                style={{ ...chip(false), color: tk.accent, borderColor: `${tk.accent}66` }}>
+                Trace source →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const anyIncomeExists = incomeAll.length > 0;
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      {/* ---- Summary ------------------------------------------------------- */}
+      <Surface>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+          <Eyebrow>Income Overview</Eyebrow>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: tk.accent, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{periodLabel}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 18 }}>
+          <StatBlock label="Total income" hint={`${summary.count} transaction${summary.count === 1 ? '' : 's'}`}>
+            <Money value={fmt(summary.total)} color={tk.positive || tk.text} size={26} weight={700} />
+          </StatBlock>
+          <StatBlock label="Received" hint="settled / past-dated">
+            <Money value={fmt(summary.received)} color={tk.positive || tk.text} size={20} weight={600} />
+          </StatBlock>
+          <StatBlock label="Pending" hint="expected / future-dated">
+            <Money value={fmt(summary.pending)} color={GOLD} size={20} weight={600} />
+          </StatBlock>
+          <StatBlock label="Main source" hint={summary.topSource ? `${summary.topSource.share.toFixed(0)}% of income` : 'no income yet'}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: tk.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {summary.topSource ? summary.topSource.name : '—'}
+            </div>
+          </StatBlock>
+        </div>
+        {monthlyChron.length > 1 && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${tk.hairline}` }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: tk.textDim, marginBottom: 12 }}>Income by month · visible</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 84 }}>
+              {monthlyChron.map((m) => (
+                <div key={m.key} title={`${new Date(m.year, m.month, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} · ${fmt(m.total)}`}
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', gap: 6 }}>
+                  <div style={{ height: `${Math.max(3, (m.total / maxMonth) * 100)}%`, background: tk.positive || tk.accent, opacity: 0.85, borderRadius: '4px 4px 0 0', ...privacyMaskStyle(privacyHidden) }} />
+                  <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 9, color: tk.textFaint || tk.textDim }}>
+                    {new Date(m.year, m.month, 1).toLocaleDateString('en-US', { month: 'short' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Surface>
+
+      {/* ---- Controls ------------------------------------------------------ */}
+      <Surface>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search income…"
+            style={{ flex: 1, minWidth: 180, background: 'transparent', border: 'none', outline: 'none', color: tk.text, fontSize: 16, fontFamily: 'var(--font-body)' }} />
+          <div style={{ display: 'inline-flex', borderRadius: 999, overflow: 'hidden', border: `1px solid ${tk.hairline2}` }}>
+            {[{ id: 'list', label: 'List' }, { id: 'source', label: 'By source' }, { id: 'month', label: 'By month' }].map((opt) => {
+              const active = view === opt.id;
+              return (
+                <button key={opt.id} onClick={() => { setView(opt.id); setOpenGroup(null); }} style={{
+                  padding: '6px 12px', border: 'none', cursor: 'pointer',
+                  background: active ? tk.accent : 'transparent', color: active ? '#0B0B0D' : tk.textDim,
+                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                }}>{opt.label}</button>
+              );
+            })}
+          </div>
+          <button onClick={() => setCompact((v) => !v)} style={chip(compact)}>{compact ? 'Compact' : 'Detailed'}</button>
+          <button onClick={togglePrivacy} title={privacyHidden ? 'Show income values' : 'Hide income values'} aria-pressed={!!privacyHidden}
+            style={{ ...chip(!!privacyHidden), padding: '6px 10px' }}>{privacyHidden ? 'Hidden ●' : 'Visible ○'}</button>
+        </div>
+
+        {/* Period row */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${tk.hairline}` }}>
+          <span style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginRight: 4 }}>Period</span>
+          <button onClick={() => setPeriod({ kind: 'all' })} style={chip(period.kind === 'all')}>All time</button>
+          <button onClick={() => setPeriod({ kind: 'month', offset: 0 })} style={chip(period.kind === 'month' && (period.offset || 0) === 0)}>This month</button>
+          <button onClick={() => setPeriod({ kind: 'range', from: '', to: '' })} style={chip(period.kind === 'range')}>Between dates</button>
+          {period.kind === 'month' && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
+              <button onClick={() => setPeriod((p) => ({ kind: 'month', offset: (p.offset || 0) - 1 }))} aria-label="Previous month"
+                style={{ ...chip(false), padding: '6px 10px' }}>‹</button>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: tk.text, minWidth: 120, textAlign: 'center' }}>
+                {monthRangeForOffset(period.offset || 0, now).from.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </span>
+              <button onClick={() => setPeriod((p) => ({ kind: 'month', offset: (p.offset || 0) + 1 }))} aria-label="Next month"
+                style={{ ...chip(false), padding: '6px 10px' }}>›</button>
+            </div>
+          )}
+          {period.kind === 'range' && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
+              <input type="date" value={period.from || ''} onChange={(e) => setPeriod((p) => ({ ...p, kind: 'range', from: e.target.value }))} style={dateInput} />
+              <span style={{ color: tk.textDim }}>—</span>
+              <input type="date" value={period.to || ''} onChange={(e) => setPeriod((p) => ({ ...p, kind: 'range', to: e.target.value }))} style={dateInput} />
+            </div>
+          )}
+        </div>
+
+        {/* Status + source row */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${tk.hairline}` }}>
+          <span style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginRight: 4 }}>Status</span>
+          {[{ id: 'all', label: 'All' }, { id: 'received', label: 'Received' }, { id: 'pending', label: 'Pending' }].map((opt) => (
+            <button key={opt.id} onClick={() => setStatus(opt.id)}
+              style={chip(status === opt.id, opt.id === 'pending' ? GOLD : (opt.id === 'received' ? (tk.positive || tk.accent) : tk.accent))}>{opt.label}</button>
+          ))}
+          <span style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', marginLeft: 12, marginRight: 4 }}>Source</span>
+          <select value={source} onChange={(e) => setSource(e.target.value)} style={selectStyle}>
+            <option value="all">All sources</option>
+            {sources.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+          {filtersActive && (
+            <button onClick={resetAll} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: tk.textDim, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+              Clear filters
+            </button>
+          )}
+        </div>
+      </Surface>
+
+      {/* ---- Body ---------------------------------------------------------- */}
+      <Surface style={{ padding: 0 }}>
+        {visible.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}>
+            <div style={{ color: tk.text, fontSize: 15 }}>
+              {anyIncomeExists ? 'No income transactions found for this period.' : 'No income transactions recorded yet.'}
+            </div>
+            <div style={{ color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+              {anyIncomeExists ? 'Try a different date range, status, or clear the filters.' : 'Add an income-type transaction to see it appear here.'}
+            </div>
+            {anyIncomeExists && filtersActive && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button onClick={resetAll} style={chip(false)}>Show all income</button>
+                <button onClick={() => setPeriod({ kind: 'all' })} style={chip(false)}>Clear date range</button>
+              </div>
+            )}
+          </div>
+        ) : view === 'list' ? (
+          <div style={{ maxHeight: 620, overflow: 'auto' }}>
+            {visible.slice(0, 500).map((tx) => <IncomeRow key={tx.id} tx={tx} />)}
+            {visible.length > 500 && (
+              <div style={{ padding: 16, textAlign: 'center', color: tk.textDim, fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                Showing first 500 of {visible.length}. Narrow the filters to see the rest.
+              </div>
+            )}
+          </div>
+        ) : view === 'source' ? (
+          <div style={{ maxHeight: 620, overflow: 'auto' }}>
+            {bySource.map((g) => {
+              const color = getCategoryColor ? getCategoryColor(g.category) : tk.accent;
+              const share = summary.total > 0 ? (g.total / summary.total) * 100 : 0;
+              const isOpen = openGroup === g.key;
+              return (
+                <div key={g.key} style={{ borderBottom: `1px solid ${tk.hairline}` }}>
+                  <div onClick={() => setOpenGroup(isOpen ? null : g.key)}
+                    style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 14, padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: tk.text, fontSize: 14 }}>{g.label}</div>
+                      <div style={{ height: 8, borderRadius: 999, background: tk.hairline2 || tk.hairline, overflow: 'hidden', marginTop: 6 }}>
+                        <div style={{ width: `${Math.max(2, share)}%`, height: '100%', background: color, borderRadius: 999 }} />
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: tk.textDim, marginTop: 5, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                        {g.count} tx · {share.toFixed(0)}% · {fmt(g.received)} received{g.pending > 0 ? ` · ${fmt(g.pending)} pending` : ''}
+                      </div>
+                    </div>
+                    <Money value={fmt(g.total)} color={tk.text} size={16} weight={600} />
+                  </div>
+                  {isOpen && <div style={{ background: tk.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>{g.items.map((tx) => <IncomeRow key={tx.id} tx={tx} />)}</div>}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ maxHeight: 620, overflow: 'auto' }}>
+            {byMonth.map((g) => {
+              const share = summary.total > 0 ? (g.total / summary.total) * 100 : 0;
+              const isOpen = openGroup === g.key;
+              const label = new Date(g.year, g.month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              return (
+                <div key={g.key} style={{ borderBottom: `1px solid ${tk.hairline}` }}>
+                  <div onClick={() => setOpenGroup(isOpen ? null : g.key)}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: tk.text, fontSize: 14 }}>{label}</div>
+                      <div style={{ height: 8, borderRadius: 999, background: tk.hairline2 || tk.hairline, overflow: 'hidden', marginTop: 6 }}>
+                        <div style={{ width: `${Math.max(2, share)}%`, height: '100%', background: tk.positive || tk.accent, borderRadius: 999 }} />
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: tk.textDim, marginTop: 5, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                        {g.count} tx · {fmt(g.received)} received{g.pending > 0 ? ` · ${fmt(g.pending)} pending` : ''}
+                      </div>
+                    </div>
+                    <Money value={fmt(g.total)} color={tk.text} size={16} weight={600} />
+                  </div>
+                  {isOpen && <div style={{ background: tk.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>{g.items.map((tx) => <IncomeRow key={tx.id} tx={tx} />)}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Surface>
+
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: tk.textFaint || tk.textDim, lineHeight: 1.6 }}>
+        Income = transactions of type income (Savings transfers excluded). Received =
+        already settled or past-dated; Pending = marked pending or future-dated. Every
+        value is read directly from your transactions — nothing here is estimated.
+      </div>
+    </div>
+  );
+};
+
 export const LedgerPage = () => {
   const {
     transactions, themeTokens, fmt, deleteTransaction, editTransaction, handleClearHistory,
     searchQuery, setSearchQuery, focusTxId, setFocusTxId, dateFilter,
   } = useAppContext();
+  const [ledgerTab, setLedgerTab] = useState('transactions'); // 'transactions' | 'income'
   const [editingTx, setEditingTx] = useState(null);
   const [cardFilter, setCardFilter] = useState('all');
   const [amountMin, setAmountMin]   = useState('');
@@ -3378,6 +3764,29 @@ export const LedgerPage = () => {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      {/* Ledger sub-tabs — Transactions (default) and the income-only view. */}
+      <Surface style={{ padding: 8 }}>
+        <div style={{ display: 'inline-flex', gap: 6, borderRadius: 999, background: 'transparent' }}>
+          {[{ id: 'transactions', label: 'Transactions' }, { id: 'income', label: 'Income' }].map((opt) => {
+            const active = ledgerTab === opt.id;
+            return (
+              <button key={opt.id} onClick={() => setLedgerTab(opt.id)} aria-pressed={active}
+                style={{
+                  padding: '9px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                  background: active ? themeTokens.accent : 'transparent',
+                  color: active ? '#0B0B0D' : themeTokens.textDim,
+                  fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em',
+                  textTransform: 'uppercase', fontWeight: active ? 700 : 400, transition: 'all 200ms',
+                }}>{opt.label}</button>
+            );
+          })}
+        </div>
+      </Surface>
+
+      {ledgerTab === 'income' ? (
+        <LedgerIncomeView onEdit={setEditingTx} />
+      ) : (
+      <>
       <Surface>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <input value={localQ} onChange={(e) => setLocalQ(e.target.value)} placeholder="Search ledger…"
@@ -3539,6 +3948,8 @@ export const LedgerPage = () => {
           )}
         </div>
       </Surface>
+      </>
+      )}
 
       {editingTx && (
         <EditTransactionDialog
