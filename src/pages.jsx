@@ -3339,7 +3339,7 @@ const IncomeStatusBadge = ({ status, tk }) => {
 };
 
 const LedgerIncomeView = ({ onEdit }) => {
-  const { transactions, themeTokens: tk, fmt, getCategoryColor, privacyHidden, togglePrivacy } = useAppContext();
+  const { transactions, themeTokens: tk, fmt, getCategoryColor, privacyHidden, togglePrivacy, deleteTransaction } = useAppContext();
   const now = useMemo(() => new Date(), []);
 
   // --- local, isolated filter state (never touches the shared ledger filters)
@@ -3379,6 +3379,45 @@ const LedgerIncomeView = ({ onEdit }) => {
 
   const filtersActive = period.kind !== 'all' || status !== 'all' || source !== 'all' || query.trim() !== '';
   const resetAll = () => { setPeriod({ kind: 'all' }); setStatus('all'); setSource('all'); setQuery(''); };
+
+  // --- deletion — writes straight to the shared transactions store via the
+  // app's own deleteTransaction (which protects `locked` rows). Always confirms
+  // first; nothing is deleted silently. Bulk/group deletes reuse the same call
+  // per id, so the exact same guard and behaviour apply as a single-row delete.
+  const deleteOne = (tx) => {
+    if (tx.locked) return;
+    if (confirmDelete(`Delete this income?\n\n${tx.description || '(no description)'} · +${fmt(tx.amount)}\n${new Date(tx.date).toLocaleDateString('en-GB')}\n\nThis permanently removes the transaction and cannot be undone.`)) {
+      deleteTransaction(tx.id);
+      setOpenId((id) => (id === tx.id ? null : id));
+    }
+  };
+  const deleteMany = (list, label) => {
+    const targets = (list || []).filter((t) => !t.locked);
+    if (!targets.length) return;
+    const total = targets.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const n = targets.length;
+    const locked = (list || []).length - n;
+    const lockedNote = locked > 0 ? `\n(${locked} locked entr${locked === 1 ? 'y is' : 'ies are'} protected and kept.)` : '';
+    if (confirmDelete(`Delete ${n} income transaction${n === 1 ? '' : 's'}${label ? ` — ${label}` : ''} totalling ${fmt(total)}?${lockedNote}\n\nThis permanently removes ${n === 1 ? 'it' : 'them'} and cannot be undone.`)) {
+      targets.forEach((t) => deleteTransaction(t.id));
+      setOpenGroup(null);
+      setOpenId(null);
+    }
+  };
+  const dangerBtn = {
+    display: 'inline-flex', alignItems: 'center', gap: 7,
+    padding: '6px 12px', borderRadius: 999,
+    border: '1px solid #E07A6E66', background: 'transparent', color: '#E07A6E',
+    fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em',
+    textTransform: 'uppercase', cursor: 'pointer', transition: 'all 200ms', whiteSpace: 'nowrap',
+  };
+  const DangerButton = ({ onClick, children, title }) => (
+    <button title={title} onClick={(e) => { e.stopPropagation(); onClick(); }} style={dangerBtn}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(224,122,110,0.12)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+      <TrashIcon /> {children}
+    </button>
+  );
 
   // --- shared styling helpers (mirror the existing Ledger filter chips) -------
   const chip = (active, accent) => ({
@@ -3427,7 +3466,7 @@ const LedgerIncomeView = ({ onEdit }) => {
         <div
           onClick={() => setOpenId(isOpen ? null : tx.id)}
           style={{
-            display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 14,
+            display: 'grid', gridTemplateColumns: 'auto 1fr auto auto auto', gap: 14,
             padding: compact ? '9px 20px' : '13px 20px', alignItems: 'center', cursor: 'pointer',
           }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: pending ? GOLD : tk.textDim, width: 64 }}>
@@ -3449,6 +3488,7 @@ const LedgerIncomeView = ({ onEdit }) => {
           </div>
           <IncomeStatusBadge status={st} tk={tk} />
           <Money value={`+${fmt(tx.amount)}`} color={pending ? GOLD : (tk.positive || tk.text)} weight={500} />
+          <TrashBtn locked={tx.locked} onClick={() => deleteOne(tx)} />
         </div>
         {isOpen && (
           <div style={{ padding: '2px 20px 14px 78px', display: 'grid', gap: 8 }}>
@@ -3595,6 +3635,18 @@ const LedgerIncomeView = ({ onEdit }) => {
 
       {/* ---- Body ---------------------------------------------------------- */}
       <Surface style={{ padding: 0 }}>
+        {visible.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 20px', borderBottom: `1px solid ${tk.hairline}` }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: tk.textDim }}>
+              {summary.count} income{summary.count === 1 ? '' : 's'} shown · {fmt(summary.total)}
+            </span>
+            <DangerButton
+              title={filtersActive ? 'Delete every income currently shown' : 'Delete all income transactions'}
+              onClick={() => deleteMany(visible, filtersActive ? periodLabel : 'all income')}>
+              {filtersActive ? `Delete these ${summary.count}` : `Delete all income (${summary.count})`}
+            </DangerButton>
+          </div>
+        )}
         {visible.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}>
             <div style={{ color: tk.text, fontSize: 15 }}>
@@ -3628,7 +3680,7 @@ const LedgerIncomeView = ({ onEdit }) => {
               return (
                 <div key={g.key} style={{ borderBottom: `1px solid ${tk.hairline}` }}>
                   <div onClick={() => setOpenGroup(isOpen ? null : g.key)}
-                    style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 14, padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}>
+                    style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 14, padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: tk.text, fontSize: 14 }}>{g.label}</div>
@@ -3640,6 +3692,7 @@ const LedgerIncomeView = ({ onEdit }) => {
                       </div>
                     </div>
                     <Money value={fmt(g.total)} color={tk.text} size={16} weight={600} />
+                    <DangerButton title={`Delete all income from ${g.label}`} onClick={() => deleteMany(g.items, g.label)}>{g.count}</DangerButton>
                   </div>
                   {isOpen && <div style={{ background: tk.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>{g.items.map((tx) => <IncomeRow key={tx.id} tx={tx} />)}</div>}
                 </div>
@@ -3655,7 +3708,7 @@ const LedgerIncomeView = ({ onEdit }) => {
               return (
                 <div key={g.key} style={{ borderBottom: `1px solid ${tk.hairline}` }}>
                   <div onClick={() => setOpenGroup(isOpen ? null : g.key)}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}>
+                    style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 14, padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: tk.text, fontSize: 14 }}>{label}</div>
                       <div style={{ height: 8, borderRadius: 999, background: tk.hairline2 || tk.hairline, overflow: 'hidden', marginTop: 6 }}>
@@ -3666,6 +3719,7 @@ const LedgerIncomeView = ({ onEdit }) => {
                       </div>
                     </div>
                     <Money value={fmt(g.total)} color={tk.text} size={16} weight={600} />
+                    <DangerButton title={`Delete all income in ${label}`} onClick={() => deleteMany(g.items, label)}>{g.count}</DangerButton>
                   </div>
                   {isOpen && <div style={{ background: tk.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>{g.items.map((tx) => <IncomeRow key={tx.id} tx={tx} />)}</div>}
                 </div>
